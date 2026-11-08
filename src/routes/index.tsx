@@ -4,6 +4,9 @@ import { Toaster, toast } from "sonner";
 import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, ChevronDown, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
 import { BimViewer } from "@/components/BimViewer";
 import { cn } from "@/lib/utils";
+import { initialProjects, type Project } from "@/lib/projects";
+import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
+import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -57,9 +60,9 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
   return <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-base font-medium", map[tone])}>{children}</span>;
 }
 
-function Index() {
-  const [ifc, setIfc] = useState<{ name: string; size: string } | null>({ name: "verona_hospital_v03.ifc", size: "184.2 MB" });
-  const [cost, setCost] = useState<string | null>("cost_dataset_Q3.xlsx");
+function Workflow({ project }: { project: Project }) {
+  const [ifc, setIfc] = useState<{ name: string; size: string } | null>({ name: project.ifc, size: "184.2 MB" });
+  const [cost, setCost] = useState<string | null>(project.config.costSource || null);
   const [drag, setDrag] = useState(false);
   const [sel, setSel] = useState<string | null>("W-101");
   const [opt, setOpt] = useState<string>("B");
@@ -77,31 +80,10 @@ function Index() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-lg">
-      <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { fontSize: 16 } }} />
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-[1400px] items-center justify-between px-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary">
-              <Layers className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <div className="text-2xl font-extrabold tracking-tight">PA<span className="text-primary">i</span>VE</div>
-              <div className="text-base text-muted-foreground">Project AI Value Engineering</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-lg hover:border-primary">
-              <span className="h-2 w-2 rounded-full bg-success" /> Verona Hospital <ChevronDown className="h-5 w-5" />
-            </button>
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-lg font-semibold text-secondary-foreground">VV</div>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-[1400px] space-y-14 px-6 pb-20 pt-32">
+    <div>
+      <main className="space-y-14 pb-20">
         <div>
-          <h1 className="text-[36px] font-bold tracking-tight">Verona Hospital — Change Workflow</h1>
+          <h1 className="text-[36px] font-bold tracking-tight">{project.config.name} — Change Workflow</h1>
           <p className="mt-2 text-lg text-muted-foreground">Upload, analyse, compare and approve design changes in one place.</p>
         </div>
 
@@ -138,7 +120,7 @@ function Index() {
           <Card>
             <SectionTitle>Project Summary</SectionTitle>
             <dl className="space-y-5">
-              {[["Model Version", "v03 · 08 Nov 2026"], ["Number of Elements", "12,486"], ["Building Area", "18,450 m²"], ["Cost Dataset", cost ?? "—"], ["Total Budget", "€ 42.8 M"]].map(([k, v]) => (
+              {[["Stage", project.config.stage], ["Model Version", "v03 · 08 Nov 2026"], ["Number of Elements", "12,486"], ["Building Area", "18,450 m²"], ["Cost Dataset", cost ?? "—"], ["Total Budget", "€ 42.8 M"]].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-border pb-4 last:border-0">
                   <dt className="text-muted-foreground">{k}</dt><dd className="text-right font-semibold">{v}</dd>
                 </div>
@@ -289,6 +271,97 @@ function Index() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+const statusTone = { "On track": "success", Analyzing: "warning", Draft: "muted" } as const;
+
+function Index() {
+  const [projects, setProjects] = useState<Project[]>(() => initialProjects());
+  const [activeId, setActiveId] = useState("verona");
+  const [view, setView] = useState<"workflow" | "config">("workflow");
+  const [open, setOpen] = useState(true);
+  const active = projects.find((p) => p.id === activeId) ?? projects[0];
+
+  const addProject = () => {
+    const n = projects.length + 1;
+    const p: Project = { id: `p${Date.now()}`, code: `P${n}`, status: "Draft", ifc: "new_model.ifc",
+      config: { ...initialProjects()[2].config, name: `New Project ${n}`, costSource: "" } };
+    setProjects((ps) => [...ps, p]); setActiveId(p.id); setView("config");
+    toast.success("Project created — complete its configuration");
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-lg">
+      <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { fontSize: 16 } }} />
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
+        <div className="flex h-20 items-center justify-between px-6">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setOpen(!open)} aria-label="Toggle projects panel" className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
+              {open ? <PanelLeftClose className="h-6 w-6" /> : <PanelLeftOpen className="h-6 w-6" />}
+            </button>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary">
+              <Layers className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div>
+              <div className="text-2xl font-extrabold tracking-tight">PA<span className="text-primary">i</span>VE</div>
+              <div className="text-base text-muted-foreground">Project AI Value Engineering</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
+            {([["workflow", "Workflow", LayoutDashboard], ["config", "Configuration", Settings2]] as const).map(([k, l, I]) => (
+              <button key={k} onClick={() => setView(k)} className={cn("flex items-center gap-2 rounded-lg px-4 py-2", view === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}><I className="h-5 w-5" />{l}</button>
+            ))}
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-lg">
+              <span className="h-2 w-2 rounded-full bg-success" /> {active.config.name}
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-lg font-semibold text-secondary-foreground">VV</div>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex pt-20">
+        <aside className={cn("sticky top-20 h-[calc(100vh-5rem)] shrink-0 overflow-y-auto border-r border-border bg-card/40 transition-all", open ? "w-80 p-5" : "w-20 p-3")}>
+          {open && <div className="mb-4 px-1 text-base font-bold tracking-widest text-muted-foreground">PROJECTS</div>}
+          <ul className="space-y-2">
+            {projects.map((p) => (
+              <li key={p.id}>
+                <button onClick={() => setActiveId(p.id)} title={p.config.name}
+                  className={cn("flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors", p.id === active.id ? "border-primary bg-primary/10" : "border-transparent hover:bg-accent")}>
+                  <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-lg font-bold", p.id === active.id ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>{p.code}</span>
+                  {open && (
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{p.config.name}</span>
+                      <span className="block truncate text-base text-muted-foreground">{p.config.stage}</span>
+                      <span className="mt-1 block"><Badge tone={statusTone[p.status]}>{p.status}</Badge></span>
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+            <li>
+              <button onClick={addProject} title="New Project" className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border p-3 text-muted-foreground hover:border-primary hover:text-primary">
+                <span className="flex h-11 w-11 items-center justify-center"><Plus className="h-6 w-6" /></span>{open && "New Project"}
+              </button>
+            </li>
+          </ul>
+        </aside>
+        <main className="min-w-0 flex-1 px-8 pt-10">
+          <div className="mx-auto max-w-[1400px]">
+            {view === "workflow" ? (
+              <Workflow key={active.id} project={active} />
+            ) : (
+              <div className="pb-20">
+                <ProjectConfigPanel key={active.id} config={active.config}
+                  onSave={(c) => setProjects((ps) => ps.map((p) => (p.id === active.id ? { ...p, config: c } : p)))} />
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
