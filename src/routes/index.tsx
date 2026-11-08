@@ -282,7 +282,7 @@ function Index() {
   const [activeId, setActiveId] = useState("verona");
   const [view, setView] = useState<"workflow" | "config">("workflow");
   const [open, setOpen] = useState(true);
-  const active = projects.find((p) => p.id === activeId) ?? projects[0];
+  const active = (projects.find((p) => p.id === activeId) ?? projects[0])!;
 
   const addProject = () => {
     const n = projects.length + 1;
