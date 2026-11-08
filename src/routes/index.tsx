@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
 import { Toaster, toast } from "sonner";
-import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, ChevronDown, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
+import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
 import { BimViewer } from "@/components/BimViewer";
 import { cn } from "@/lib/utils";
 import { initialProjects, type Project } from "@/lib/projects";
