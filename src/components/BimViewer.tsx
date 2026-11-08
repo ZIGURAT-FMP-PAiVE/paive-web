@@ -65,8 +65,8 @@ export function BimViewer({ selectedId, onSelect }: Props) {
       const highlight = (id: string | null) => {
         meshes.forEach((m) => {
           const mat = m.material as InstanceType<typeof THREE.MeshStandardMaterial>;
-          const on = m.userData.id === id;
-          mat.color.setHex(on ? 0x00b3ff : m.userData.base);
+          const on = m.userData['id'] === id;
+          mat.color.setHex(on ? 0x00b3ff : m.userData['base']);
           mat.emissive.setHex(on ? 0x003a55 : 0x000000);
         });
       };
@@ -82,7 +82,7 @@ export function BimViewer({ selectedId, onSelect }: Props) {
         v.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
         ray.setFromCamera(v, camera);
         const hit = ray.intersectObjects(meshes, false)[0];
-        if (hit) onSelectRef.current(hit.object.userData.id);
+        if (hit) onSelectRef.current(hit.object.userData['id']);
       };
       renderer.domElement.addEventListener("pointerdown", pd);
       renderer.domElement.addEventListener("pointerup", pu);

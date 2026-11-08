@@ -71,7 +71,7 @@ function Index() {
   const selected = ELEMENTS.find((e) => e.id === sel);
   const handleIfc = (f?: File) => {
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith(".ifc")) return toast.error("Please select an .ifc file");
+    if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
     setIfc({ name: f.name, size: `${(f.size / 1e6).toFixed(1)} MB` });
     toast.success(`IFC model "${f.name}" uploaded`);
   };
