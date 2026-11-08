@@ -287,7 +287,7 @@ function Index() {
   const addProject = () => {
     const n = projects.length + 1;
     const p: Project = { id: `p${Date.now()}`, code: `P${n}`, status: "Draft", ifc: "new_model.ifc",
-      config: { ...initialProjects()[2].config, name: `New Project ${n}`, costSource: "" } };
+      config: { ...initialProjects()[2]!.config, name: `New Project ${n}`, costSource: "" } };
     setProjects((ps) => [...ps, p]); setActiveId(p.id); setView("config");
     toast.success("Project created — complete its configuration");
   };
