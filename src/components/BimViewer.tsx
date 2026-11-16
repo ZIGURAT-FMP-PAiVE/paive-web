@@ -2,10 +2,23 @@ import { useEffect, useRef, useState } from "react";
 
 export type BimElement = { id: string; type: string };
 
-type Props = { selectedId: string | null; onSelect: (id: string) => void; file?: File | null };
+export type PropGroup = { name: string; props: [string, string][] };
+export type IfcInfo = { expressId: string; ifcClass: string; guid: string; name: string; objectType: string; tag: string; groups: PropGroup[] };
+
+type Props = { selectedId: string | null; onSelect: (id: string) => void; file?: File | null; onInspect?: (info: IfcInfo | null) => void };
+
+const val = (x: unknown): string => {
+  if (x == null) return "";
+  if (typeof x === "object" && "value" in (x as object)) return val((x as { value: unknown }).value);
+  if (typeof x === "number") return Number.isInteger(x) ? String(x) : x.toFixed(3);
+  return String(x);
+};
 
 // Procedural demo model. Swap for That Open Engine / IFC.js loader later.
-export function BimViewer({ selectedId, onSelect, file }: Props) {
+export function BimViewer({ selectedId, onSelect, file, onInspect }: Props) {
+  const inspectRef = useRef<(id: string | null) => void>(() => onInspectRef.current?.(null));
+  const onInspectRef = useRef(onInspect);
+  onInspectRef.current = onInspect;
   const loadRef = useRef<(f: File) => Promise<void>>(async () => {});
   const pendingRef = useRef<File | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -115,8 +128,43 @@ export function BimViewer({ selectedId, onSelect, file }: Props) {
               geo.delete();
             }
           });
-          api.CloseModel(modelID);
-          if (!newMeshes.length) throw new Error("No geometry found in this IFC file");
+          if (!newMeshes.length) { api.CloseModel(modelID); throw new Error("No geometry found in this IFC file"); }
+          // Map element -> property definitions
+          const relMap = new Map<number, number[]>();
+          const rels = api.GetLineIDsWithType(modelID, WebIFC.IFCRELDEFINESBYPROPERTIES);
+          for (let i = 0; i < rels.size(); i++) {
+            const rel = api.GetLine(modelID, rels.get(i), false);
+            const def = rel.RelatingPropertyDefinition?.value;
+            for (const o of rel.RelatedObjects ?? []) {
+              const arr = relMap.get(o.value) ?? []; arr.push(def); relMap.set(o.value, arr);
+            }
+          }
+          inspectRef.current = (sid) => {
+            if (!sid) { onInspectRef.current?.(null); return; }
+            try {
+              const eid = Number(sid);
+              const line = api.GetLine(modelID, eid, false);
+              const groups: PropGroup[] = [];
+              for (const pid of relMap.get(eid) ?? []) {
+                const ps = api.GetLine(modelID, pid, false);
+                const props: [string, string][] = [];
+                for (const h of ps.HasProperties ?? []) {
+                  const pr = api.GetLine(modelID, h.value, false);
+                  props.push([val(pr.Name), val(pr.NominalValue) || val(pr.EnumerationValues?.[0])]);
+                }
+                for (const q of ps.Quantities ?? []) {
+                  const qu = api.GetLine(modelID, q.value, false);
+                  const v = qu.LengthValue ?? qu.AreaValue ?? qu.VolumeValue ?? qu.CountValue ?? qu.WeightValue ?? qu.TimeValue;
+                  props.push([val(qu.Name), val(v)]);
+                }
+                if (props.length) groups.push({ name: val(ps.Name) || "Properties", props });
+              }
+              onInspectRef.current?.({
+                expressId: sid, ifcClass: api.GetNameFromTypeCode(api.GetLineType(modelID, eid)),
+                guid: val(line.GlobalId), name: val(line.Name), objectType: val(line.ObjectType), tag: val(line.Tag), groups,
+              });
+            } catch (err) { console.error(err); onInspectRef.current?.(null); }
+          };
           demoGroup.forEach((m) => (m.visible = false));
           if (ifcGroup) scene.remove(ifcGroup);
           ifcGroup = group; scene.add(group);
@@ -129,6 +177,7 @@ export function BimViewer({ selectedId, onSelect, file }: Props) {
           camera.position.copy(center).add(new THREE.Vector3(size * 0.6, size * 0.45, size * 0.6));
           grid.position.y = box.min.y;
           setStatus(null);
+          onSelectRef.current(String(newMeshes[0]!.userData['id']));
         } catch (err) {
           console.error(err);
           setStatus("Could not read this IFC file: " + (err instanceof Error ? err.message : String(err)));
@@ -168,7 +217,7 @@ export function BimViewer({ selectedId, onSelect, file }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { selectRef.current(selectedId); }, [selectedId]);
+  useEffect(() => { selectRef.current(selectedId); inspectRef.current(selectedId); }, [selectedId]);
   useEffect(() => { if (file) { pendingRef.current = file; void loadRef.current(file).then(() => { pendingRef.current = null; }); } }, [file]);
 
   return (
