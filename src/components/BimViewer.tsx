@@ -1,11 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type BimElement = { id: string; type: string };
 
-type Props = { selectedId: string | null; onSelect: (id: string) => void };
+type Props = { selectedId: string | null; onSelect: (id: string) => void; file?: File | null };
 
 // Procedural demo model. Swap for That Open Engine / IFC.js loader later.
-export function BimViewer({ selectedId, onSelect }: Props) {
+export function BimViewer({ selectedId, onSelect, file }: Props) {
+  const loadRef = useRef<(f: File) => Promise<void>>(async () => {});
+  const pendingRef = useRef<File | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const selectRef = useRef<(id: string | null) => void>(() => {});
   const onSelectRef = useRef(onSelect);
@@ -72,6 +75,67 @@ export function BimViewer({ selectedId, onSelect }: Props) {
       };
       selectRef.current = highlight;
 
+      const demoGroup = [...meshes];
+      let ifcGroup: InstanceType<typeof THREE.Group> | null = null;
+      loadRef.current = async (f: File) => {
+        setStatus("Loading IFC model…");
+        try {
+          const WebIFC = await import("web-ifc");
+          const api = new WebIFC.IfcAPI();
+          api.SetWasmPath("/wasm/");
+          await api.Init();
+          const data = new Uint8Array(await f.arrayBuffer());
+          const modelID = api.OpenModel(data);
+          const group = new THREE.Group();
+          const newMeshes: InstanceType<typeof THREE.Mesh>[] = [];
+          api.StreamAllMeshes(modelID, (fm) => {
+            const id = String(fm.expressID);
+            for (let i = 0; i < fm.geometries.size(); i++) {
+              const pg = fm.geometries.get(i);
+              const geo = api.GetGeometry(modelID, pg.geometryExpressID);
+              const verts = api.GetVertexArray(geo.GetVertexData(), geo.GetVertexDataSize());
+              const idx = api.GetIndexArray(geo.GetIndexData(), geo.GetIndexDataSize());
+              const pos = new Float32Array(verts.length / 2), nor = new Float32Array(verts.length / 2);
+              for (let k = 0; k < verts.length; k += 6) {
+                const j = k / 2;
+                pos[j] = verts[k]!; pos[j + 1] = verts[k + 1]!; pos[j + 2] = verts[k + 2]!;
+                nor[j] = verts[k + 3]!; nor[j + 1] = verts[k + 4]!; nor[j + 2] = verts[k + 5]!;
+              }
+              const g = new THREE.BufferGeometry();
+              g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+              g.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+              g.setIndex(new THREE.BufferAttribute(idx, 1));
+              const c = pg.color;
+              const col = new THREE.Color(c.x, c.y, c.z);
+              const mat = new THREE.MeshStandardMaterial({ color: col, transparent: c.w < 1, opacity: c.w, side: THREE.DoubleSide, roughness: 0.7 });
+              const m = new THREE.Mesh(g, mat);
+              m.applyMatrix4(new THREE.Matrix4().fromArray(pg.flatTransformation));
+              m.userData = { id, base: col.getHex() };
+              group.add(m); newMeshes.push(m);
+              geo.delete();
+            }
+          });
+          api.CloseModel(modelID);
+          if (!newMeshes.length) throw new Error("No geometry found in this IFC file");
+          demoGroup.forEach((m) => (m.visible = false));
+          if (ifcGroup) scene.remove(ifcGroup);
+          ifcGroup = group; scene.add(group);
+          meshes.length = 0; meshes.push(...newMeshes);
+          const box = new THREE.Box3().setFromObject(group);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3()).length();
+          controls.target.copy(center);
+          camera.near = size / 1000; camera.far = size * 20; camera.updateProjectionMatrix();
+          camera.position.copy(center).add(new THREE.Vector3(size * 0.6, size * 0.45, size * 0.6));
+          grid.position.y = box.min.y;
+          setStatus(null);
+        } catch (err) {
+          console.error(err);
+          setStatus("Could not read this IFC file: " + (err instanceof Error ? err.message : String(err)));
+        }
+      };
+      if (pendingRef.current) { const p = pendingRef.current; pendingRef.current = null; void loadRef.current(p); }
+
       const ray = new THREE.Raycaster();
       const v = new THREE.Vector2();
       let down = { x: 0, y: 0 };
@@ -105,6 +169,12 @@ export function BimViewer({ selectedId, onSelect }: Props) {
   }, []);
 
   useEffect(() => { selectRef.current(selectedId); }, [selectedId]);
+  useEffect(() => { if (file) { pendingRef.current = file; void loadRef.current(file).then(() => { pendingRef.current = null; }); } }, [file]);
 
-  return <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
+      {status && <div className="absolute inset-x-0 top-4 mx-auto w-fit rounded-lg bg-background/90 px-4 py-2 text-sm text-foreground">{status}</div>}
+    </div>
+  );
 }

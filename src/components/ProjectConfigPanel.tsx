@@ -11,7 +11,7 @@ function Block({ n, label, title, desc, icon, children }: { n: string; label: st
       <div className="flex items-start justify-between">
         <div>
           <div className="text-base font-bold tracking-widest text-primary">{n} / {label}</div>
-          <h3 className="mt-1 text-[24px] font-semibold">{title}</h3>
+          <h3 className="mt-1 text-[18px] font-semibold">{title}</h3>
           {desc && <p className="mt-1 text-base text-muted-foreground">{desc}</p>}
         </div>
         <span className="text-muted-foreground">{icon}</span>
@@ -30,7 +30,7 @@ export function ProjectConfigPanel({ config, onSave }: { config: ProjectConfig; 
     <div className="space-y-6">
       <div>
         <div className="text-base font-bold tracking-widest text-muted-foreground">CONFIGURATION · PROJECT</div>
-        <h1 className="mt-2 text-[36px] font-bold tracking-tight">Project setup</h1>
+        <h1 className="mt-2 text-[27px] font-bold tracking-tight">Project setup</h1>
         <p className="mt-1 text-lg text-muted-foreground">Define the project brief, client priorities and cost source.</p>
       </div>
 
