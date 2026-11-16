@@ -11,6 +11,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Type scale reduced to 75% of Tailwind defaults */
+@theme {
+  --text-xs: 0.5625rem; --text-sm: 0.65625rem; --text-base: 0.75rem; --text-lg: 0.84375rem;
+  --text-xl: 0.9375rem; --text-2xl: 1.125rem; --text-3xl: 1.40625rem; --text-4xl: 1.6875rem;
+  --text-5xl: 2.25rem; --text-6xl: 2.8125rem; --text-7xl: 3.375rem;
+}
+
 /*
  * Design system definition.
  *
@@ -132,4 +139,4 @@
   border: 1px solid var(--border);
   border-radius: 1rem;
 }
-body { font-size: 18px; font-family: var(--font-sans); }
+body { font-size: 13.5px; font-family: var(--font-sans); }

@@ -3,6 +3,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { Toaster, toast } from "sonner";
 import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
 import { BimViewer } from "@/components/BimViewer";
+import logo from "@/assets/paive_logo.png.asset.json";
 import { cn } from "@/lib/utils";
 import { initialProjects, type Project } from "@/lib/projects";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
@@ -45,7 +46,7 @@ function Card({ children, className }: { children: ReactNode; className?: string
 function SectionTitle({ children, sub }: { children: ReactNode; sub?: string }) {
   return (
     <div className="mb-6">
-      <h2 className="text-[24px] font-semibold">{children}</h2>
+      <h2 className="text-[18px] font-semibold">{children}</h2>
       {sub && <p className="mt-1 text-lg text-muted-foreground">{sub}</p>}
     </div>
   );
@@ -61,6 +62,7 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
 }
 
 function Workflow({ project }: { project: Project }) {
+  const [ifcFile, setIfcFile] = useState<File | null>(null);
   const [ifc, setIfc] = useState<{ name: string; size: string } | null>({ name: project.ifc, size: "184.2 MB" });
   const [cost, setCost] = useState<string | null>(project.config.costSource || null);
   const [drag, setDrag] = useState(false);
@@ -76,14 +78,15 @@ function Workflow({ project }: { project: Project }) {
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
     setIfc({ name: f.name, size: `${(f.size / 1e6).toFixed(1)} MB` });
-    toast.success(`IFC model "${f.name}" uploaded`);
+    setIfcFile(f);
+    toast.success(`IFC model "${f.name}" uploaded`, { description: "Loading model in the viewer…" });
   };
 
   return (
     <div>
       <main className="space-y-14 pb-20">
         <div>
-          <h1 className="text-[36px] font-bold tracking-tight">{project.config.name} — Change Workflow</h1>
+          <h1 className="text-[27px] font-bold tracking-tight">{project.config.name} — Change Workflow</h1>
           <p className="mt-2 text-lg text-muted-foreground">Upload, analyse, compare and approve design changes in one place.</p>
         </div>
 
@@ -131,7 +134,7 @@ function Workflow({ project }: { project: Project }) {
 
         {/* Section 2 */}
         <section>
-          <h2 className="mb-6 text-[24px] font-semibold">2. Change Analysis</h2>
+          <h2 className="mb-6 text-[18px] font-semibold">2. Change Analysis</h2>
           <div className="grid gap-6 lg:grid-cols-[5fr_7fr]">
             <div className="space-y-6">
               <Card>
@@ -167,11 +170,11 @@ function Workflow({ project }: { project: Project }) {
             <div className="space-y-6">
               <div className="glass overflow-hidden">
                 <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                  <div className="flex items-center gap-3"><Box className="h-6 w-6 text-primary" /><h3 className="text-[24px] font-semibold">BIM Model Viewer</h3></div>
-                  <Badge tone="muted">Ready for That Open Engine / IFC.js</Badge>
+                  <div className="flex items-center gap-3"><Box className="h-6 w-6 text-primary" /><h3 className="text-[18px] font-semibold">BIM Model Viewer</h3></div>
+                  <Badge tone="muted">{ifcFile ? ifcFile.name : "Demo model"}</Badge>
                 </div>
                 <div className="relative h-[700px]">
-                  <BimViewer selectedId={sel} onSelect={setSel} />
+                  <BimViewer selectedId={sel} onSelect={setSel} file={ifcFile} />
                   <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">Drag to orbit · Scroll to zoom · Click to select</div>
                 </div>
               </div>
@@ -204,8 +207,8 @@ function Workflow({ project }: { project: Project }) {
                   <span className={cn("text-lg font-semibold", toneText[o.tone])}>Option {o.key}</span>
                   <span className={cn("flex h-7 w-7 items-center justify-center rounded-full border-2", toneBorder[o.tone], opt === o.key && "bg-primary")}>{opt === o.key && <Check className="h-4 w-4 text-primary-foreground" />}</span>
                 </div>
-                <h3 className="mt-2 text-[24px] font-semibold">{o.name}</h3>
-                <p className="mt-4 text-[32px] font-bold">{o.cost}</p>
+                <h3 className="mt-2 text-[18px] font-semibold">{o.name}</h3>
+                <p className="mt-4 text-[24px] font-bold">{o.cost}</p>
                 <ul className="mt-5 space-y-3">
                   <li className="flex justify-between"><span className="text-muted-foreground">Schedule</span><span>{o.sched}</span></li>
                   <li className="flex justify-between"><span className="text-muted-foreground">Risk</span><Badge tone={o.risk === "Low" ? "success" : "warning"}>{o.risk}</Badge></li>
@@ -236,7 +239,7 @@ function Workflow({ project }: { project: Project }) {
           <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
             <Card>
               <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-[24px] font-semibold">Decision</h3>
+                <h3 className="text-[18px] font-semibold">Decision</h3>
                 <span className="text-muted-foreground">Selected: <span className="font-semibold text-primary">Option {opt}</span>{decision && <> · <Badge tone={decision === "Approved" ? "success" : "warning"}>{decision}</Badge></>}</span>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -248,7 +251,7 @@ function Workflow({ project }: { project: Project }) {
               <textarea id="rat" value={rationale} onChange={(e) => setRationale(e.target.value)} rows={5} placeholder="Provide decision rationale..." className="mt-2 w-full rounded-xl border border-input bg-background/50 p-4 text-lg outline-none placeholder:text-muted-foreground focus:border-primary" />
             </Card>
             <Card>
-              <h3 className="mb-6 text-[24px] font-semibold">Version History</h3>
+              <h3 className="mb-6 text-[18px] font-semibold">Version History</h3>
               <ol className="relative space-y-7 border-l-2 border-border pl-8">
                 {[["Version 01", "Initial Upload", "12 Oct 2026", false], ["Version 02", "Wall Modification", "28 Oct 2026", false], ["Version 03", "Value Engineering Review", "08 Nov 2026", true]].map(([v, t, d, cur]) => (
                   <li key={v as string} className="relative">
@@ -294,20 +297,15 @@ function Index() {
 
   return (
     <div className="min-h-screen bg-background text-lg">
-      <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { fontSize: 16 } }} />
+      <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { fontSize: 12 } }} />
       <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
         <div className="flex h-20 items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <button onClick={() => setOpen(!open)} aria-label="Toggle projects panel" className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
               {open ? <PanelLeftClose className="h-6 w-6" /> : <PanelLeftOpen className="h-6 w-6" />}
             </button>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary">
-              <Layers className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <div className="text-2xl font-extrabold tracking-tight">PA<span className="text-primary">i</span>VE</div>
-              <div className="text-base text-muted-foreground">Project AI Value Engineering</div>
-            </div>
+            <img src={logo.url} alt="PAiVE" className="h-8 w-auto" />
+            <div className="hidden border-l border-border pl-4 text-sm text-muted-foreground sm:block">Project AI Value Engineering</div>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
             {([["workflow", "Workflow", LayoutDashboard], ["config", "Configuration", Settings2]] as const).map(([k, l, I]) => (
