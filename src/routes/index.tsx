@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
 import { Toaster, toast } from "sonner";
 import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
-import { BimViewer } from "@/components/BimViewer";
+import { BimViewer, type IfcInfo } from "@/components/BimViewer";
+import { parseCostFile, findCost, type CostRow } from "@/lib/costFile";
 import logo from "@/assets/paive_logo.png.asset.json";
 import { cn } from "@/lib/utils";
 import { initialProjects, type Project } from "@/lib/projects";
@@ -66,6 +67,23 @@ function Workflow({ project }: { project: Project }) {
   const [ifc, setIfc] = useState<{ name: string; size: string } | null>({ name: project.ifc, size: "184.2 MB" });
   const [cost, setCost] = useState<string | null>(project.config.costSource || null);
   const [drag, setDrag] = useState(false);
+  const [costRows, setCostRows] = useState<CostRow[]>([]);
+  const [info, setInfo] = useState<IfcInfo | null>(null);
+  const eur = (n: number) => `€${Math.round(n).toLocaleString("en-US")}`;
+  const totalBudget = costRows.reduce((a, r) => a + r.total, 0);
+  const handleCost = async (f?: File) => {
+    if (!f) return;
+    try {
+      const rows = await parseCostFile(f);
+      if (!rows.length) { toast.error("No cost rows found in this file"); return; }
+      setCostRows(rows); setCost(f.name);
+      toast.success(`Cost data "${f.name}" loaded`, { description: `${rows.length} items · ${eur(rows.reduce((a, r) => a + r.total, 0))}` });
+    } catch (e) { console.error(e); toast.error("Could not read this cost file"); }
+  };
+  const downloadTemplate = () => {
+    const csv = "Element ID,Description,Cost Code,Quantity,Unit,Unit Rate,Total Cost\nW-101,External wall,C-21.10.01,120,m2,280,33600\nD-11,Door,C-23.20.04,1,nr,2400,2400\nWIN-07,Window,C-23.30.02,1,nr,1850,1850\nSLAB-01,Ground slab,C-22.10.01,192,m2,500,96000\n";
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "paive_cost_template.csv"; a.click();
+  };
   const [sel, setSel] = useState<string | null>("W-101");
   const [opt, setOpt] = useState<string>("B");
   const [decision, setDecision] = useState<string | null>(null);
@@ -116,14 +134,15 @@ function Workflow({ project }: { project: Project }) {
               <button onClick={() => costInput.current?.click()} className="flex items-center gap-2 rounded-xl border border-secondary px-5 py-3 font-medium text-foreground hover:bg-secondary/15">
                 <FileSpreadsheet className="h-5 w-5 text-secondary" /> Upload Cost File
               </button>
-              <input ref={costInput} type="file" accept=".xlsx,.csv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCost(f.name); toast.success(`Cost data "${f.name}" uploaded`); } }} />
-              <span className="text-base text-muted-foreground">{cost ? `Loaded: ${cost}` : "Supports .xlsx, .csv"}</span>
+              <input ref={costInput} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { void handleCost(e.target.files?.[0]); e.target.value = ""; }} />
+              <span className="text-base text-muted-foreground">{costRows.length ? `Loaded: ${cost} · ${costRows.length} items` : "Supports .xlsx, .xls, .csv"}</span>
+              <button onClick={downloadTemplate} className="flex items-center gap-2 text-base text-primary hover:underline"><Download className="h-4 w-4" />Download template</button>
             </div>
           </Card>
           <Card>
             <SectionTitle>Project Summary</SectionTitle>
             <dl className="space-y-5">
-              {[["Stage", project.config.stage], ["Model Version", "v03 · 08 Nov 2026"], ["Number of Elements", "12,486"], ["Building Area", "18,450 m²"], ["Cost Dataset", cost ?? "—"], ["Total Budget", "€ 42.8 M"]].map(([k, v]) => (
+              {[["Stage", project.config.stage], ["Model Version", "v03 · 08 Nov 2026"], ["Number of Elements", "12,486"], ["Building Area", "18,450 m²"], ["Cost Dataset", cost ?? "—"], ["Cost Items", costRows.length ? String(costRows.length) : "—"], ["Total Budget", costRows.length ? eur(totalBudget) : "€ 42.8 M"]].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-border pb-4 last:border-0">
                   <dt className="text-muted-foreground">{k}</dt><dd className="text-right font-semibold">{v}</dd>
                 </div>
@@ -155,7 +174,13 @@ function Workflow({ project }: { project: Project }) {
                     <tr className="border-b border-border"><th className="pb-3 font-medium">Element</th><th className="pb-3 font-medium">Type</th><th className="pb-3 text-right font-medium">Cost Impact</th></tr>
                   </thead>
                   <tbody>
-                    {ELEMENTS.map((e) => (
+                    {costRows.length ? costRows.slice(0, 15).map((r, i) => (
+                      <tr key={r.id + i} onClick={() => setSel(r.id)} className={cn("cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-accent", sel === r.id && "bg-primary/10")}>
+                        <td className={cn("py-4 pl-2 font-medium", sel === r.id && "text-primary")}>{r.id}</td>
+                        <td className="py-4 text-muted-foreground">{r.description || r.code}</td>
+                        <td className="py-4 pr-2 text-right font-semibold text-warning">{eur(r.total)}</td>
+                      </tr>
+                    )) : ELEMENTS.map((e) => (
                       <tr key={e.id} onClick={() => setSel(e.id)} className={cn("cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-accent", sel === e.id && "bg-primary/10")}>
                         <td className={cn("py-4 pl-2 font-medium", sel === e.id && "text-primary")}>{e.id.startsWith("W-") ? "Wall" : e.id.startsWith("D-") ? "Door" : e.id.startsWith("WIN") ? "Window" : "Slab"} {e.id}</td>
                         <td className="py-4 font-mono text-muted-foreground">{e.type}</td>
@@ -174,23 +199,42 @@ function Workflow({ project }: { project: Project }) {
                   <Badge tone="muted">{ifcFile ? ifcFile.name : "Demo model"}</Badge>
                 </div>
                 <div className="relative h-[700px]">
-                  <BimViewer selectedId={sel} onSelect={setSel} file={ifcFile} />
+                  <BimViewer selectedId={sel} onSelect={setSel} file={ifcFile} onInspect={setInfo} />
                   <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">Drag to orbit · Scroll to zoom · Click to select</div>
                 </div>
               </div>
               <Card>
                 <SectionTitle>Element Properties</SectionTitle>
-                {selected ? (
-                  <dl className="grid grid-cols-2 gap-x-8 gap-y-4">
-                    {[["GUID", selected.guid], ["Element Type", selected.type], ["Cost Code", selected.code], ["Current Cost", `€${selected.current.toLocaleString("en-US")}`]].map(([k, v]) => (
-                      <div key={k}><dt className="text-base text-muted-foreground">{k}</dt><dd className="break-all font-medium">{v}</dd></div>
-                    ))}
-                    <div><dt className="text-base text-muted-foreground">Status</dt><dd className="mt-1"><Badge tone="warning">{selected.status}</Badge></dd></div>
-                    <div><dt className="text-base text-muted-foreground">Element</dt><dd className="font-medium text-primary">{selected.id}</dd></div>
-                  </dl>
-                ) : (
-                  <p className="text-muted-foreground">Selected: <span className="text-primary">{sel ?? "none"}</span> — not affected by this change.</p>
-                )}
+                {(() => {
+                  const ifcMode = !!ifcFile;
+                  const c = findCost(costRows, ifcMode ? [info?.tag, info?.guid, info?.name, info?.expressId] : [sel]);
+                  const ident: [string, string][] = ifcMode
+                    ? info ? [["Name", info.name || "—"], ["IFC Class", info.ifcClass], ["GUID", info.guid], ["Express ID", info.expressId], ["Object Type", info.objectType || "—"], ["Tag", info.tag || "—"]] : []
+                    : selected ? [["Element", selected.id], ["Element Type", selected.type], ["GUID", selected.guid], ["Cost Code", selected.code], ["Current Cost", eur(selected.current)], ["Status", selected.status]] : [];
+                  if (!ident.length) return <p className="text-muted-foreground">Click an element in the model to see its properties.</p>;
+                  const Grid = ({ rows }: { rows: [string, string][] }) => (
+                    <dl className="grid grid-cols-2 gap-x-8 gap-y-3">
+                      {rows.map(([k, v], i) => <div key={k + i}><dt className="text-sm text-muted-foreground">{k}</dt><dd className="break-all font-medium">{v || "—"}</dd></div>)}
+                    </dl>
+                  );
+                  return (
+                    <div className="max-h-[520px] space-y-5 overflow-y-auto pr-2">
+                      <div><h4 className="mb-3 font-semibold text-primary">Identification</h4><Grid rows={ident} /></div>
+                      <div className="border-t border-border pt-4">
+                        <h4 className="mb-3 font-semibold text-primary">Cost Data</h4>
+                        {c ? <Grid rows={[["Description", c.description], ["Cost Code", c.code], ["Quantity", c.quantity != null ? `${c.quantity} ${c.unit}` : ""], ["Unit Rate", c.rate != null ? eur(c.rate) : ""], ["Total Cost", eur(c.total)]]} />
+                          : <p className="text-muted-foreground">{costRows.length ? "No matching row in the cost file (matched by Element ID, Tag, GUID or Name)." : "Upload a cost file to link costs."}</p>}
+                      </div>
+                      {ifcMode && info?.groups.map((g, i) => (
+                        <details key={g.name + i} className="border-t border-border pt-4" open={i < 2}>
+                          <summary className="mb-3 cursor-pointer font-semibold">{g.name} <span className="text-sm text-muted-foreground">({g.props.length})</span></summary>
+                          <Grid rows={g.props} />
+                        </details>
+                      ))}
+                      {ifcMode && info && !info.groups.length && <p className="border-t border-border pt-4 text-muted-foreground">No property sets on this element.</p>}
+                    </div>
+                  );
+                })()}
               </Card>
             </div>
           </div>
