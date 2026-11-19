@@ -24,6 +24,7 @@ export type IfcVersion = {
   sizeLabel: string;
   uploadedAt: string;
   file: File | null;
+  elementCount: number | null;
 };
 
 export type Project = {
@@ -97,14 +98,22 @@ export function clearProjectIfcVersions(project: Project): Project {
   return { ...project, ifc: "", ifcVersions: [], activeIfcVersion: 0 };
 }
 
+export function setIfcVersionElementCount(project: Project, version: number, elementCount: number): Project {
+  return {
+    ...project,
+    ifcVersions: project.ifcVersions.map((v) => (v.version === version ? { ...v, elementCount } : v)),
+  };
+}
+
 export function appendIfcVersion(project: Project, file: File, uploadedAt = formatIfcDate(new Date())): Project {
   const version = (project.ifcVersions.at(-1)?.version ?? 0) + 1;
   const entry: IfcVersion = {
     version,
     name: file.name,
-    sizeLabel: `${(file.size / 1e6).toFixed(1)} MB`,
+    sizeLabel: file.size < 1e6 ? `${Math.max(file.size / 1e3, 0.1).toFixed(1)} KB` : `${(file.size / 1e6).toFixed(1)} MB`,
     uploadedAt,
     file,
+    elementCount: null,
   };
   return {
     ...project,
@@ -118,7 +127,7 @@ function baselineIfc(name: string, uploadedAt: string): Pick<Project, "ifc" | "i
   return {
     ifc: name,
     activeIfcVersion: 1,
-    ifcVersions: [{ version: 1, name, sizeLabel: "—", uploadedAt, file: null }],
+    ifcVersions: [{ version: 1, name, sizeLabel: "—", uploadedAt, file: null, elementCount: null }],
   };
 }
 

@@ -5,7 +5,13 @@ export type BimElement = { id: string; type: string };
 export type PropGroup = { name: string; props: [string, string][] };
 export type IfcInfo = { expressId: string; ifcClass: string; guid: string; name: string; objectType: string; tag: string; groups: PropGroup[] };
 
-type Props = { selectedId: string | null; onSelect: (id: string) => void; file?: File | null; onInspect?: (info: IfcInfo | null) => void };
+type Props = {
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  file?: File | null;
+  onInspect?: (info: IfcInfo | null) => void;
+  onModelLoaded?: (stats: { elementCount: number }) => void;
+};
 
 const val = (x: unknown): string => {
   if (x == null) return "";
@@ -15,12 +21,15 @@ const val = (x: unknown): string => {
 };
 
 // Procedural demo model. Swap for That Open Engine / IFC.js loader later.
-export function BimViewer({ selectedId, onSelect, file, onInspect }: Props) {
+export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded }: Props) {
   const inspectRef = useRef<(id: string | null) => void>(() => onInspectRef.current?.(null));
   const onInspectRef = useRef(onInspect);
   onInspectRef.current = onInspect;
+  const onModelLoadedRef = useRef(onModelLoaded);
+  onModelLoadedRef.current = onModelLoaded;
   const loadRef = useRef<(f: File) => Promise<void>>(async () => {});
   const pendingRef = useRef<File | null>(null);
+  const viewerReadyRef = useRef(false);
   const [status, setStatus] = useState<string | null>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const selectRef = useRef<(id: string | null) => void>(() => {});
@@ -90,6 +99,20 @@ export function BimViewer({ selectedId, onSelect, file, onInspect }: Props) {
 
       const demoGroup = [...meshes];
       let ifcGroup: InstanceType<typeof THREE.Group> | null = null;
+      const showDemo = () => {
+        demoGroup.forEach((m) => (m.visible = true));
+        if (ifcGroup) {
+          scene.remove(ifcGroup);
+          ifcGroup = null;
+        }
+        meshes.length = 0;
+        meshes.push(...demoGroup);
+        inspectRef.current = (sid) => {
+          if (!sid) onInspectRef.current?.(null);
+        };
+        onModelLoadedRef.current?.({ elementCount: demoGroup.length });
+      };
+
       loadRef.current = async (f: File) => {
         setStatus("Loading IFC model…");
         try {
@@ -101,7 +124,9 @@ export function BimViewer({ selectedId, onSelect, file, onInspect }: Props) {
           const modelID = api.OpenModel(data);
           const group = new THREE.Group();
           const newMeshes: InstanceType<typeof THREE.Mesh>[] = [];
+          const elementIds = new Set<number>();
           api.StreamAllMeshes(modelID, (fm) => {
+            elementIds.add(fm.expressID);
             const id = String(fm.expressID);
             for (let i = 0; i < fm.geometries.size(); i++) {
               const pg = fm.geometries.get(i);
@@ -177,13 +202,21 @@ export function BimViewer({ selectedId, onSelect, file, onInspect }: Props) {
           camera.position.copy(center).add(new THREE.Vector3(size * 0.6, size * 0.45, size * 0.6));
           grid.position.y = box.min.y;
           setStatus(null);
+          onModelLoadedRef.current?.({ elementCount: elementIds.size });
           onSelectRef.current(String(newMeshes[0]!.userData['id']));
         } catch (err) {
           console.error(err);
           setStatus("Could not read this IFC file: " + (err instanceof Error ? err.message : String(err)));
         }
       };
-      if (pendingRef.current) { const p = pendingRef.current; pendingRef.current = null; void loadRef.current(p); }
+      viewerReadyRef.current = true;
+      if (pendingRef.current) {
+        const p = pendingRef.current;
+        pendingRef.current = null;
+        void loadRef.current(p);
+      } else if (!file) {
+        showDemo();
+      }
 
       const ray = new THREE.Raycaster();
       const v = new THREE.Vector2();
@@ -213,12 +246,20 @@ export function BimViewer({ selectedId, onSelect, file, onInspect }: Props) {
         renderer.domElement.remove();
       };
     })();
-    return () => { disposed = true; cleanup(); };
+    return () => {
+      disposed = true;
+      viewerReadyRef.current = false;
+      cleanup();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => { selectRef.current(selectedId); inspectRef.current(selectedId); }, [selectedId]);
-  useEffect(() => { if (file) { pendingRef.current = file; void loadRef.current(file).then(() => { pendingRef.current = null; }); } }, [file]);
+  useEffect(() => {
+    if (!file) return;
+    pendingRef.current = file;
+    if (viewerReadyRef.current) void loadRef.current(file);
+  }, [file]);
 
   return (
     <div className="relative h-full w-full">

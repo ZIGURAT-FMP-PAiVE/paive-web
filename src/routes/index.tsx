@@ -4,7 +4,6 @@ import { Toaster, toast } from "sonner";
 import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
 import { BimViewer, type IfcInfo } from "@/components/BimViewer";
 import { findCost, type CostRow } from "@/lib/costFile";
-import logo from "@/assets/paive_logo.png.asset.json";
 import { cn } from "@/lib/utils";
 import {
   activeIfcVersion,
@@ -13,6 +12,7 @@ import {
   defaultProjectConfig,
   ifcVersionLabel,
   resetProjectToDefaults,
+  setIfcVersionElementCount,
   type Project,
   type ProjectCostData,
 } from "@/lib/projects";
@@ -88,11 +88,13 @@ function Workflow({
   onStoreIfc,
   onStoreCost,
   onClearIfcVersions,
+  onIfcElementCount,
 }: {
   project: Project;
   onStoreIfc: (file: File) => void;
   onStoreCost: (file: File, rows: CostRow[]) => void;
   onClearIfcVersions: () => void;
+  onIfcElementCount: (version: number, elementCount: number) => void;
 }) {
   const currentIfc = activeIfcVersion(project);
   const ifcFile = currentIfc?.file ?? null;
@@ -112,10 +114,23 @@ function Workflow({
   const [opt, setOpt] = useState<string>("B");
   const [decision, setDecision] = useState<string | null>(null);
   const [rationale, setRationale] = useState("");
+  const [ifcElementCount, setIfcElementCount] = useState<number | null>(currentIfc?.elementCount ?? null);
   const ifcInput = useRef<HTMLInputElement>(null);
   const costInput = useRef<HTMLInputElement>(null);
 
   const selected = ELEMENTS.find((e) => e.id === sel);
+  useEffect(() => {
+    setIfcElementCount(currentIfc?.elementCount ?? null);
+    setInfo(null);
+  }, [project.id, project.activeIfcVersion, currentIfc?.elementCount, ifcFile?.name]);
+
+  const elementCountLabel = (() => {
+    if (currentIfc?.elementCount != null) return currentIfc.elementCount.toLocaleString("en-US");
+    if (ifcElementCount != null) return ifcElementCount.toLocaleString("en-US");
+    if (ifcFile) return "Loading…";
+    return "—";
+  })();
+
   const handleIfc = (f?: File) => {
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
@@ -206,7 +221,7 @@ function Workflow({
               {[
                 ["Stage", project.config.stage],
                 ["Model Version", currentIfc ? `${ifcVersionLabel(currentIfc.version)} · ${currentIfc.uploadedAt}` : "—"],
-                ["Number of Elements", "12,486"],
+                ["Number of Elements", elementCountLabel],
                 ["Building Area", "18,450 m²"],
                 [
                   "Cost Dataset",
@@ -280,7 +295,17 @@ function Workflow({
                   <Badge tone="muted">{ifcFile ? ifcFile.name : "Demo model"}</Badge>
                 </div>
                 <div className="relative h-[700px]">
-                  <BimViewer selectedId={sel} onSelect={setSel} file={ifcFile} onInspect={setInfo} />
+                  <BimViewer
+                    key={`${project.id}-${project.activeIfcVersion}-${ifcFile?.name ?? "demo"}`}
+                    selectedId={sel}
+                    onSelect={setSel}
+                    file={ifcFile}
+                    onInspect={setInfo}
+                    onModelLoaded={({ elementCount }) => {
+                      setIfcElementCount(elementCount);
+                      onIfcElementCount(project.activeIfcVersion, elementCount);
+                    }}
+                  />
                   <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">Drag to orbit · Scroll to zoom · Click to select</div>
                 </div>
               </div>
@@ -523,12 +548,14 @@ function Index() {
       <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { fontSize: 12 } }} />
       <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
         <div className="flex h-20 items-center justify-between px-6">
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="shrink-0 rounded-lg bg-white px-3 py-1.5 shadow-sm ring-1 ring-border/40">
+              <img src="/paive-logo.png" alt="PAiVE" className="h-9 w-auto" width={120} height={36} />
+            </div>
             <button onClick={() => setOpen(!open)} aria-label="Toggle projects panel" className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
               {open ? <PanelLeftClose className="h-6 w-6" /> : <PanelLeftOpen className="h-6 w-6" />}
             </button>
-            <img src={logo.url} alt="PAiVE" className="h-8 w-auto" />
-            <div className="hidden border-l border-border pl-4 text-sm text-muted-foreground sm:block">Project AI Value Engineering</div>
+            <div className="hidden border-l border-border pl-4 text-sm text-muted-foreground lg:block">Project AI Value Engineering</div>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
             {([["workflow", "Workflow", LayoutDashboard], ["config", "Configuration", Settings2]] as const).map(([k, l, I]) => (
@@ -579,6 +606,9 @@ function Index() {
                 onStoreIfc={(file) => setProjects((ps) => ps.map((p) => (p.id === active.id ? appendIfcVersion(p, file) : p)))}
                 onStoreCost={storeCostOnProject}
                 onClearIfcVersions={() => void clearActiveIfcVersions()}
+                onIfcElementCount={(version, elementCount) =>
+                  setProjects((ps) => ps.map((p) => (p.id === active.id ? setIfcVersionElementCount(p, version, elementCount) : p)))
+                }
               />
             </div>
             <div className={cn("pb-20", view !== "config" && "hidden")}>
