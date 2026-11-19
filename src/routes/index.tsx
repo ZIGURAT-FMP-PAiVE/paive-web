@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { activeIfcVersion, appendIfcVersion, ifcVersionLabel, initialProjects, type Project } from "@/lib/projects";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
 import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard } from "lucide-react";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { TruncatedText } from "@/components/TruncatedText";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -147,16 +149,48 @@ function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file
                 <FileSpreadsheet className="h-5 w-5 text-secondary" /> Upload Cost File
               </button>
               <input ref={costInput} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { void handleCost(e.target.files?.[0]); e.target.value = ""; }} />
-              <span className="text-base text-muted-foreground">{costRows.length ? `Loaded: ${cost} · ${costRows.length} items` : "Supports .xlsx, .xls, .csv"}</span>
+              {costRows.length ? (
+                <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base text-muted-foreground">
+                  <span className="shrink-0">Loaded:</span>
+                  <TruncatedText
+                    text={cost ?? ""}
+                    maxWidthClass="max-w-[min(100%,16rem)]"
+                    className="font-semibold text-foreground"
+                  />
+                  <span className="shrink-0">· {costRows.length} items</span>
+                </span>
+              ) : (
+                <span className="text-base text-muted-foreground">Supports .xlsx, .xls, .csv</span>
+              )}
               <button onClick={downloadTemplate} className="flex items-center gap-2 text-base text-primary hover:underline"><Download className="h-4 w-4" />Download template</button>
             </div>
           </Card>
           <Card>
             <SectionTitle>Project Summary</SectionTitle>
             <dl className="space-y-5">
-              {[["Stage", project.config.stage], ["Model Version", currentIfc ? `${ifcVersionLabel(currentIfc.version)} · ${currentIfc.uploadedAt}` : "—"], ["Number of Elements", "12,486"], ["Building Area", "18,450 m²"], ["Cost Dataset", cost ?? "—"], ["Cost Items", costRows.length ? String(costRows.length) : "—"], ["Total Budget", costRows.length ? eur(totalBudget) : "€ 42.8 M"]].map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-4 border-b border-border pb-4 last:border-0">
-                  <dt className="text-muted-foreground">{k}</dt><dd className="text-right font-semibold">{v}</dd>
+              {[
+                ["Stage", project.config.stage],
+                ["Model Version", currentIfc ? `${ifcVersionLabel(currentIfc.version)} · ${currentIfc.uploadedAt}` : "—"],
+                ["Number of Elements", "12,486"],
+                ["Building Area", "18,450 m²"],
+                [
+                  "Cost Dataset",
+                  cost ? (
+                    <TruncatedText
+                      text={cost}
+                      maxWidthClass="max-w-[min(100%,14rem)]"
+                      className="ml-auto font-semibold text-foreground"
+                    />
+                  ) : (
+                    "—"
+                  ),
+                ],
+                ["Cost Items", costRows.length ? String(costRows.length) : "—"],
+                ["Total Budget", costRows.length ? eur(totalBudget) : "€ 42.8 M"],
+              ].map(([k, v]) => (
+                <div key={k as string} className="flex items-center justify-between gap-4 border-b border-border pb-4 last:border-0">
+                  <dt className="shrink-0 text-muted-foreground">{k}</dt>
+                  <dd className="min-w-0 text-right font-semibold">{v}</dd>
                 </div>
               ))}
             </dl>
@@ -355,6 +389,7 @@ function Index() {
   };
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="min-h-screen bg-background text-lg">
       <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { fontSize: 12 } }} />
       <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
@@ -421,5 +456,6 @@ function Index() {
         </main>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
