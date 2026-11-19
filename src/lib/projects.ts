@@ -60,7 +60,7 @@ export function storeProjectCostFile(
     ...project,
     costData: {
       name: file.name,
-      sizeLabel: `${(file.size / 1e6).toFixed(1)} MB`,
+      sizeLabel: file.size < 1e6 ? `${Math.max(file.size / 1e3, 0.1).toFixed(1)} KB` : `${(file.size / 1e6).toFixed(1)} MB`,
       uploadedAt,
       file,
       rows,

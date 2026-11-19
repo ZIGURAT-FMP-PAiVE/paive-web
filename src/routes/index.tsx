@@ -163,11 +163,11 @@ function Workflow({
                 <FileSpreadsheet className="h-5 w-5 text-secondary" /> Upload Cost File
               </button>
               <input ref={costInput} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { void handleCost(e.target.files?.[0]); e.target.value = ""; }} />
-              {costRows.length ? (
+              {project.costData ? (
                 <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base text-muted-foreground">
                   <span className="shrink-0">Loaded:</span>
                   <TruncatedText
-                    text={project.costData?.name ?? ""}
+                    text={project.costData.name}
                     maxWidthClass="max-w-[min(100%,16rem)]"
                     className="font-semibold text-foreground"
                   />
@@ -199,8 +199,8 @@ function Workflow({
                     "—"
                   ),
                 ],
-                ["Cost Items", costRows.length ? String(costRows.length) : "—"],
-                ["Total Budget", costRows.length ? eur(totalBudget) : "€ 42.8 M"],
+                ["Cost Items", project.costData ? String(costRows.length) : "—"],
+                ["Total Budget", project.costData ? eur(totalBudget) : "€ 42.8 M"],
               ].map(([k, v]) => (
                 <div key={k as string} className="flex items-center justify-between gap-4 border-b border-border pb-4 last:border-0">
                   <dt className="shrink-0 text-muted-foreground">{k}</dt>
