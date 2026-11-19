@@ -6,7 +6,7 @@ import { BimViewer, type IfcInfo } from "@/components/BimViewer";
 import { parseCostFile, findCost, type CostRow } from "@/lib/costFile";
 import logo from "@/assets/paive_logo.png.asset.json";
 import { cn } from "@/lib/utils";
-import { initialProjects, type Project } from "@/lib/projects";
+import { activeIfcVersion, appendIfcVersion, ifcVersionLabel, initialProjects, type Project } from "@/lib/projects";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
 import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard } from "lucide-react";
 
@@ -62,9 +62,9 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
   return <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-base font-medium", map[tone])}>{children}</span>;
 }
 
-function Workflow({ project }: { project: Project }) {
-  const [ifcFile, setIfcFile] = useState<File | null>(null);
-  const [ifc, setIfc] = useState<{ name: string; size: string } | null>({ name: project.ifc, size: "184.2 MB" });
+function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file: File) => void }) {
+  const currentIfc = activeIfcVersion(project);
+  const ifcFile = currentIfc?.file ?? null;
   const [cost, setCost] = useState<string | null>(project.config.costSource || null);
   const [drag, setDrag] = useState(false);
   const [costRows, setCostRows] = useState<CostRow[]>([]);
@@ -95,9 +95,9 @@ function Workflow({ project }: { project: Project }) {
   const handleIfc = (f?: File) => {
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
-    setIfc({ name: f.name, size: `${(f.size / 1e6).toFixed(1)} MB` });
-    setIfcFile(f);
-    toast.success(`IFC model "${f.name}" uploaded`, { description: "Loading model in the viewer…" });
+    const version = (project.ifcVersions.at(-1)?.version ?? 0) + 1;
+    onStoreIfc(f);
+    toast.success(`IFC model stored as ${ifcVersionLabel(version)}`, { description: `${f.name} · previous versions stay on this project` });
   };
 
   return (
@@ -111,7 +111,7 @@ function Workflow({ project }: { project: Project }) {
         {/* Section 1 */}
         <section className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
-            <SectionTitle sub="Upload a new IFC version and associated cost data.">1. Upload IFC Model</SectionTitle>
+            <SectionTitle sub="Each upload is kept. The model already on the project is version 1; the next file is version 2.">1. Upload IFC Model</SectionTitle>
             <div
               onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
               onDragLeave={() => setDrag(false)}
@@ -122,13 +122,25 @@ function Workflow({ project }: { project: Project }) {
               <p className="mt-4 text-xl font-medium">Drag & drop your IFC file here</p>
               <p className="text-base text-muted-foreground">IFC 2x3 / IFC4 · up to 500 MB</p>
               <button onClick={() => ifcInput.current?.click()} className="mt-5 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90">Select IFC File</button>
-              <input ref={ifcInput} type="file" accept=".ifc" hidden onChange={(e) => handleIfc(e.target.files?.[0])} />
+              <input ref={ifcInput} type="file" accept=".ifc" hidden onChange={(e) => { handleIfc(e.target.files?.[0]); e.target.value = ""; }} />
             </div>
-            {ifc && (
-              <div className="mt-5 flex items-center justify-between rounded-xl border border-border bg-background/40 p-4">
-                <div className="flex items-center gap-3"><FileBox className="h-6 w-6 text-primary" /><span>{ifc.name}</span><span className="text-base text-muted-foreground">{ifc.size}</span></div>
-                <Badge tone="success"><CheckCircle2 className="mr-1 h-4 w-4" />Parsed</Badge>
-              </div>
+            {project.ifcVersions.length > 0 && (
+              <ul className="mt-5 space-y-3">
+                {project.ifcVersions.map((v) => {
+                  const current = v.version === project.activeIfcVersion;
+                  return (
+                    <li key={v.version} className={cn("flex items-center justify-between rounded-xl border p-4", current ? "border-primary bg-primary/10" : "border-border bg-background/40")}>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <FileBox className="h-6 w-6 shrink-0 text-primary" />
+                        <span className="font-semibold">{ifcVersionLabel(v.version)}</span>
+                        <span className="truncate">{v.name}</span>
+                        <span className="shrink-0 text-base text-muted-foreground">{v.file ? v.sizeLabel : v.uploadedAt}</span>
+                      </div>
+                      {current ? <Badge tone="success"><CheckCircle2 className="mr-1 h-4 w-4" />Current</Badge> : <Badge tone="muted">Stored</Badge>}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
             <div className="mt-5 flex flex-wrap items-center gap-4">
               <button onClick={() => costInput.current?.click()} className="flex items-center gap-2 rounded-xl border border-secondary px-5 py-3 font-medium text-foreground hover:bg-secondary/15">
@@ -142,7 +154,7 @@ function Workflow({ project }: { project: Project }) {
           <Card>
             <SectionTitle>Project Summary</SectionTitle>
             <dl className="space-y-5">
-              {[["Stage", project.config.stage], ["Model Version", "v03 · 08 Nov 2026"], ["Number of Elements", "12,486"], ["Building Area", "18,450 m²"], ["Cost Dataset", cost ?? "—"], ["Cost Items", costRows.length ? String(costRows.length) : "—"], ["Total Budget", costRows.length ? eur(totalBudget) : "€ 42.8 M"]].map(([k, v]) => (
+              {[["Stage", project.config.stage], ["Model Version", currentIfc ? `${ifcVersionLabel(currentIfc.version)} · ${currentIfc.uploadedAt}` : "—"], ["Number of Elements", "12,486"], ["Building Area", "18,450 m²"], ["Cost Dataset", cost ?? "—"], ["Cost Items", costRows.length ? String(costRows.length) : "—"], ["Total Budget", costRows.length ? eur(totalBudget) : "€ 42.8 M"]].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4 border-b border-border pb-4 last:border-0">
                   <dt className="text-muted-foreground">{k}</dt><dd className="text-right font-semibold">{v}</dd>
                 </div>
@@ -297,13 +309,16 @@ function Workflow({ project }: { project: Project }) {
             <Card>
               <h3 className="mb-6 text-[18px] font-semibold">Version History</h3>
               <ol className="relative space-y-7 border-l-2 border-border pl-8">
-                {[["Version 01", "Initial Upload", "12 Oct 2026", false], ["Version 02", "Wall Modification", "28 Oct 2026", false], ["Version 03", "Value Engineering Review", "08 Nov 2026", true]].map(([v, t, d, cur]) => (
-                  <li key={v as string} className="relative">
-                    <span className={cn("absolute -left-[42px] top-1 h-5 w-5 rounded-full border-4 border-background", cur ? "bg-primary" : "bg-muted-foreground")} />
-                    <div className="font-semibold">{v} · {t}</div>
-                    <div className="text-base text-muted-foreground">{d}{cur && " · Current"}</div>
-                  </li>
-                ))}
+                {project.ifcVersions.map((v) => {
+                  const cur = v.version === project.activeIfcVersion;
+                  return (
+                    <li key={v.version} className="relative">
+                      <span className={cn("absolute -left-[42px] top-1 h-5 w-5 rounded-full border-4 border-background", cur ? "bg-primary" : "bg-muted-foreground")} />
+                      <div className="font-semibold">{ifcVersionLabel(v.version)} · {v.name}</div>
+                      <div className="text-base text-muted-foreground">{v.uploadedAt}{v.file ? ` · ${v.sizeLabel}` : ""}{cur && " · Current"}</div>
+                    </li>
+                  );
+                })}
               </ol>
             </Card>
           </div>
@@ -333,7 +348,7 @@ function Index() {
 
   const addProject = () => {
     const n = projects.length + 1;
-    const p: Project = { id: `p${Date.now()}`, code: `P${n}`, status: "Draft", ifc: "new_model.ifc",
+    const p: Project = { id: `p${Date.now()}`, code: `P${n}`, status: "Draft", ifc: "", ifcVersions: [], activeIfcVersion: 0,
       config: { ...initialProjects()[2]!.config, name: `New Project ${n}`, costSource: "" } };
     setProjects((ps) => [...ps, p]); setActiveId(p.id); setView("config");
     toast.success("Project created — complete its configuration");
@@ -393,9 +408,10 @@ function Index() {
         </aside>
         <main className="min-w-0 flex-1 px-8 pt-10">
           <div className="mx-auto max-w-[1400px]">
-            {view === "workflow" ? (
-              <Workflow key={active.id} project={active} />
-            ) : (
+            <div className={view === "workflow" ? undefined : "hidden"}>
+              <Workflow key={active.id} project={active} onStoreIfc={(file) => setProjects((ps) => ps.map((p) => (p.id === active.id ? appendIfcVersion(p, file) : p)))} />
+            </div>
+            {view === "config" && (
               <div className="pb-20">
                 <ProjectConfigPanel key={active.id} config={active.config}
                   onSave={(c) => setProjects((ps) => ps.map((p) => (p.id === active.id ? { ...p, config: c } : p)))} />
