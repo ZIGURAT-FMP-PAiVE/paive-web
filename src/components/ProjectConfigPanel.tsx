@@ -32,6 +32,7 @@ export function ProjectConfigPanel({
   onCostUpload,
   onCostDataChange,
   onSave,
+  onResetDefaults,
 }: {
   config: ProjectConfig;
   baseline: ProjectConfig;
@@ -41,6 +42,7 @@ export function ProjectConfigPanel({
   onCostUpload: (file: File) => Promise<void>;
   onCostDataChange: (costData: ProjectCostData | null) => void;
   onSave: () => void;
+  onResetDefaults: () => void;
 }) {
   const costInput = useRef<HTMLInputElement>(null);
   const set = <K extends keyof ProjectConfig>(k: K, v: ProjectConfig[K]) => onChange({ ...config, [k]: v });
@@ -141,17 +143,26 @@ export function ProjectConfigPanel({
         )}
       </Block>
 
-      <div className="flex justify-end gap-3">
+      <div className="flex flex-wrap justify-end gap-3">
         <button
+          type="button"
+          onClick={onResetDefaults}
+          className="flex items-center gap-2 rounded-xl border border-warning/40 px-6 py-3 font-medium text-warning hover:bg-warning/10"
+        >
+          <RotateCcw className="h-5 w-5" />
+          Reset to defaults
+        </button>
+        <button
+          type="button"
           onClick={() => {
             onChange(baseline);
             onCostDataChange(baselineCostData);
-            toast.info("Changes discarded");
+            toast.info("Reverted to last saved configuration");
           }}
           className="flex items-center gap-2 rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent"
         >
           <RotateCcw className="h-5 w-5" />
-          Reset
+          Undo unsaved changes
         </button>
         <button onClick={() => { if (!config.name.trim()) { toast.error("Project name is required"); return; } onSave(); toast.success("Configuration updated", { description: config.name }); }} className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"><Save className="h-5 w-5" />Save Configuration</button>
       </div>

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Toaster, toast } from "sonner";
 import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
 import { BimViewer, type IfcInfo } from "@/components/BimViewer";
@@ -9,13 +9,23 @@ import { cn } from "@/lib/utils";
 import {
   activeIfcVersion,
   appendIfcVersion,
+  clearProjectIfcVersions,
+  defaultProjectConfig,
   ifcVersionLabel,
-  initialProjects,
+  resetProjectToDefaults,
   type Project,
   type ProjectCostData,
-  type ProjectConfig,
 } from "@/lib/projects";
 import { applyProjectCostFile, loadProjectCostFile } from "@/lib/projectCost";
+import {
+  deleteAllProjectFiles,
+  deleteProjectIfcFiles,
+  loadWorkspace,
+  projectBaselinesFromProjects,
+  saveWorkspace,
+  seedProjects,
+  type ProjectBaseline,
+} from "@/lib/projectStorage";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
 import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -77,10 +87,12 @@ function Workflow({
   project,
   onStoreIfc,
   onStoreCost,
+  onClearIfcVersions,
 }: {
   project: Project;
   onStoreIfc: (file: File) => void;
   onStoreCost: (file: File, rows: CostRow[]) => void;
+  onClearIfcVersions: () => void;
 }) {
   const currentIfc = activeIfcVersion(project);
   const ifcFile = currentIfc?.file ?? null;
@@ -95,10 +107,6 @@ function Workflow({
     const loaded = await loadProjectCostFile(f);
     if (!loaded) return;
     onStoreCost(loaded.file, loaded.rows);
-  };
-  const downloadTemplate = () => {
-    const csv = "Element ID,Description,Cost Code,Quantity,Unit,Unit Rate,Total Cost\nW-101,External wall,C-21.10.01,120,m2,280,33600\nD-11,Door,C-23.20.04,1,nr,2400,2400\nWIN-07,Window,C-23.30.02,1,nr,1850,1850\nSLAB-01,Ground slab,C-22.10.01,192,m2,500,96000\n";
-    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "paive_cost_template.csv"; a.click();
   };
   const [sel, setSel] = useState<string | null>("W-101");
   const [opt, setOpt] = useState<string>("B");
@@ -127,7 +135,21 @@ function Workflow({
         {/* Section 1 */}
         <section className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
-            <SectionTitle sub="Each upload is kept. The model already on the project is version 1; the next file is version 2.">1. Upload IFC Model</SectionTitle>
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+              <SectionTitle sub="Each upload is kept. The model already on the project is version 1; the next file is version 2.">
+                1. Upload IFC Model
+              </SectionTitle>
+              {project.ifcVersions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onClearIfcVersions}
+                  className="flex shrink-0 items-center gap-2 rounded-xl border border-border px-4 py-2 text-base font-medium text-muted-foreground hover:border-warning hover:text-warning"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Clear IFC versions
+                </button>
+              )}
+            </div>
             <div
               onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
               onDragLeave={() => setDrag(false)}
@@ -176,7 +198,6 @@ function Workflow({
               ) : (
                 <span className="text-base text-muted-foreground">Supports .xlsx, .xls, .csv</span>
               )}
-              <button onClick={downloadTemplate} className="flex items-center gap-2 text-base text-primary hover:underline"><Download className="h-4 w-4" />Download template</button>
             </div>
           </Card>
           <Card>
@@ -387,22 +408,48 @@ function Workflow({
 
 const statusTone = { "On track": "success", Analyzing: "warning", Draft: "muted" } as const;
 
-type ProjectBaseline = { config: ProjectConfig; costData: ProjectCostData | null };
-
 function projectBaseline(p: Project): ProjectBaseline {
-  return { config: p.config, costData: p.costData };
+  return {
+    config: { ...p.config, targets: p.config.targets.map((t) => ({ ...t })) },
+    costData: p.costData ? { ...p.costData, rows: [...p.costData.rows], file: null } : null,
+  };
 }
 
 function Index() {
-  const [projects, setProjects] = useState<Project[]>(() => initialProjects());
+  const [projects, setProjects] = useState<Project[]>(() => seedProjects());
   const [projectBaselines, setProjectBaselines] = useState<Record<string, ProjectBaseline>>(() =>
-    Object.fromEntries(initialProjects().map((p) => [p.id, projectBaseline(p)])),
+    projectBaselinesFromProjects(seedProjects()),
   );
   const [activeId, setActiveId] = useState("verona");
   const [view, setView] = useState<"workflow" | "config">("workflow");
   const [open, setOpen] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
   const active = (projects.find((p) => p.id === activeId) ?? projects[0])!;
   const activeBaseline = projectBaselines[active.id] ?? projectBaseline(active);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadWorkspace().then((ws) => {
+      if (cancelled) return;
+      if (ws) {
+        setProjects(ws.projects);
+        setProjectBaselines(ws.projectBaselines);
+        setActiveId(ws.activeId);
+      }
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const timer = window.setTimeout(() => {
+      void saveWorkspace(projects, projectBaselines, activeId);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [projects, projectBaselines, activeId, hydrated]);
 
   const updateConfig = (config: Project["config"]) => {
     setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, config } : p)));
@@ -432,7 +479,7 @@ function Index() {
       ifcVersions: [],
       activeIfcVersion: 0,
       costData: null,
-      config: { ...initialProjects()[2]!.config, name: `New Project ${n}`, costSource: "" },
+      config: defaultProjectConfig(`New Project ${n}`),
     };
     setProjects((ps) => [...ps, p]);
     setProjectBaselines((b) => ({ ...b, [p.id]: projectBaseline(p) }));
@@ -440,6 +487,35 @@ function Index() {
     setView("config");
     toast.success("Project created — complete its configuration");
   };
+
+  const resetActiveProjectDefaults = async () => {
+    const id = activeId;
+    await deleteAllProjectFiles(id);
+    setProjects((ps) => {
+      const next = ps.map((p) => (p.id === id ? resetProjectToDefaults(p) : p));
+      const fresh = next.find((p) => p.id === id)!;
+      setProjectBaselines((b) => ({ ...b, [id]: projectBaseline(fresh) }));
+      return next;
+    });
+    toast.success("Project reset", {
+      description: "Configuration cleared, cost file removed, and IFC versions reset to zero",
+    });
+  };
+
+  const clearActiveIfcVersions = async () => {
+    const id = activeId;
+    await deleteProjectIfcFiles(id);
+    setProjects((ps) => ps.map((p) => (p.id === id ? clearProjectIfcVersions(p) : p)));
+    toast.success("IFC versions cleared", { description: "Next upload will start again at version 01" });
+  };
+
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-lg text-muted-foreground">
+        Loading projects…
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -502,6 +578,7 @@ function Index() {
                 project={active}
                 onStoreIfc={(file) => setProjects((ps) => ps.map((p) => (p.id === active.id ? appendIfcVersion(p, file) : p)))}
                 onStoreCost={storeCostOnProject}
+                onClearIfcVersions={() => void clearActiveIfcVersions()}
               />
             </div>
             <div className={cn("pb-20", view !== "config" && "hidden")}>
@@ -515,6 +592,7 @@ function Index() {
                 onCostUpload={uploadProjectCost}
                 onCostDataChange={updateCostData}
                 onSave={() => setProjectBaselines((b) => ({ ...b, [active.id]: projectBaseline(active) }))}
+                onResetDefaults={() => void resetActiveProjectDefaults()}
               />
             </div>
           </div>

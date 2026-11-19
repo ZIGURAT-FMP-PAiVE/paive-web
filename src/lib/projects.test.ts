@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { appendIfcVersion, ifcVersionLabel, initialProjects, storeProjectCostFile } from "./projects";
+import {
+  appendIfcVersion,
+  clearProjectIfcVersions,
+  ifcVersionLabel,
+  initialProjects,
+  resetProjectToDefaults,
+  storeProjectCostFile,
+} from "./projects";
 
 describe("IFC versions", () => {
   it("keeps the current model as version 1 and stores the next upload as version 2", () => {
@@ -31,5 +38,26 @@ describe("project cost file", () => {
     expect(next.costData?.rows).toHaveLength(1);
     expect(next.config.costSource).toBe("verona_costs.csv");
     expect(project.costData).toBeNull();
+  });
+});
+
+describe("reset project", () => {
+  it("clears IFC versions so the next upload can start at version 01", () => {
+    let project = appendIfcVersion(initialProjects()[0]!, new File(["ifc"], "a.ifc"), "today");
+    project = appendIfcVersion(project, new File(["ifc"], "b.ifc"), "today");
+    const cleared = clearProjectIfcVersions(project);
+    expect(cleared.ifcVersions).toEqual([]);
+    expect(cleared.activeIfcVersion).toBe(0);
+    const again = appendIfcVersion(cleared, new File(["ifc"], "c.ifc"), "today");
+    expect(again.activeIfcVersion).toBe(1);
+  });
+
+  it("resets configuration fields and removes cost data", () => {
+    const project = storeProjectCostFile(initialProjects()[0]!, new File([], "cost.csv"), []);
+    const reset = resetProjectToDefaults(project);
+    expect(reset.costData).toBeNull();
+    expect(reset.ifcVersions).toEqual([]);
+    expect(reset.config.typology).toBe("");
+    expect(reset.config.name).toBe("Verona Hospital");
   });
 });

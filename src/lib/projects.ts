@@ -69,6 +69,34 @@ export function storeProjectCostFile(
   };
 }
 
+export function defaultProjectConfig(name: string): ProjectConfig {
+  return {
+    name,
+    stage: "Design Development",
+    typology: "",
+    targets: targets(),
+    functionWeight: 60,
+    costSource: "",
+  };
+}
+
+/** Empty configuration, no IFC versions, and no cost file — next IFC upload becomes v01. */
+export function resetProjectToDefaults(project: Project): Project {
+  return {
+    ...project,
+    status: "Draft",
+    ifc: "",
+    ifcVersions: [],
+    activeIfcVersion: 0,
+    costData: null,
+    config: defaultProjectConfig(project.config.name.trim() || `Project ${project.code}`),
+  };
+}
+
+export function clearProjectIfcVersions(project: Project): Project {
+  return { ...project, ifc: "", ifcVersions: [], activeIfcVersion: 0 };
+}
+
 export function appendIfcVersion(project: Project, file: File, uploadedAt = formatIfcDate(new Date())): Project {
   const version = (project.ifcVersions.at(-1)?.version ?? 0) + 1;
   const entry: IfcVersion = {
