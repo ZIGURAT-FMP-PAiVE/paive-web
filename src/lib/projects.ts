@@ -1,3 +1,5 @@
+import type { CostRow } from "./costFile";
+
 export type Op = "Maximum" | "Minimum" | "Equal";
 export type Target = { key: string; name: string; metric: string; unit: string; op: Op; value: string };
 export type ProjectConfig = {
@@ -8,6 +10,14 @@ export type ProjectConfig = {
   functionWeight: number; // resource efficiency = 100 - functionWeight
   costSource: string;
 };
+export type ProjectCostData = {
+  name: string;
+  sizeLabel: string;
+  uploadedAt: string;
+  file: File | null;
+  rows: CostRow[];
+};
+
 export type IfcVersion = {
   version: number;
   name: string;
@@ -23,6 +33,7 @@ export type Project = {
   ifc: string;
   ifcVersions: IfcVersion[];
   activeIfcVersion: number;
+  costData: ProjectCostData | null;
   config: ProjectConfig;
 };
 
@@ -39,6 +50,25 @@ export function activeIfcVersion(project: Project): IfcVersion | undefined {
 }
 
 /** Keep the previous model and store this file as the next version (version 2 on the first upload). */
+export function storeProjectCostFile(
+  project: Project,
+  file: File,
+  rows: CostRow[],
+  uploadedAt = formatIfcDate(new Date()),
+): Project {
+  return {
+    ...project,
+    costData: {
+      name: file.name,
+      sizeLabel: `${(file.size / 1e6).toFixed(1)} MB`,
+      uploadedAt,
+      file,
+      rows,
+    },
+    config: { ...project.config, costSource: file.name },
+  };
+}
+
 export function appendIfcVersion(project: Project, file: File, uploadedAt = formatIfcDate(new Date())): Project {
   const version = (project.ifcVersions.at(-1)?.version ?? 0) + 1;
   const entry: IfcVersion = {
@@ -74,11 +104,11 @@ const targets = (fire = "60"): Target[] => [
 
 export function initialProjects(): Project[] {
   return [
-    { id: "verona", code: "VH", status: "Analyzing", ...baselineIfc("verona_hospital_v03.ifc", "12 Oct 2026"),
+    { id: "verona", code: "VH", status: "Analyzing", costData: null, ...baselineIfc("verona_hospital_v03.ifc", "12 Oct 2026"),
       config: { name: "Verona Hospital", stage: "Design Development", typology: "External walls", targets: targets("90"), functionWeight: 60, costSource: "DEI Prezzario 2026 – Veneto" } },
-    { id: "milano", code: "MM", status: "On track", ...baselineIfc("milano_medical_v02.ifc", "28 Oct 2026"),
+    { id: "milano", code: "MM", status: "On track", costData: null, ...baselineIfc("milano_medical_v02.ifc", "28 Oct 2026"),
       config: { name: "Milano Medical Center", stage: "Schematic Design", typology: "Facade systems", targets: targets("120"), functionWeight: 50, costSource: "rates_milano_Q3_2026.xlsx" } },
-    { id: "test1", code: "T1", status: "Draft", ...baselineIfc("test_model.ifc", "01 Nov 2026"),
+    { id: "test1", code: "T1", status: "Draft", costData: null, ...baselineIfc("test_model.ifc", "01 Nov 2026"),
       config: { name: "Test Valentina 1", stage: "Design Development", typology: "External walls", targets: targets(), functionWeight: 70, costSource: "" } },
   ];
 }

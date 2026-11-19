@@ -3,10 +3,19 @@ import { useRef, useState, type ReactNode } from "react";
 import { Toaster, toast } from "sonner";
 import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
 import { BimViewer, type IfcInfo } from "@/components/BimViewer";
-import { parseCostFile, findCost, type CostRow } from "@/lib/costFile";
+import { findCost, type CostRow } from "@/lib/costFile";
 import logo from "@/assets/paive_logo.png.asset.json";
 import { cn } from "@/lib/utils";
-import { activeIfcVersion, appendIfcVersion, ifcVersionLabel, initialProjects, type Project } from "@/lib/projects";
+import {
+  activeIfcVersion,
+  appendIfcVersion,
+  ifcVersionLabel,
+  initialProjects,
+  type Project,
+  type ProjectCostData,
+  type ProjectConfig,
+} from "@/lib/projects";
+import { applyProjectCostFile, loadProjectCostFile } from "@/lib/projectCost";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
 import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -64,25 +73,28 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
   return <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-base font-medium", map[tone])}>{children}</span>;
 }
 
-function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file: File) => void }) {
+function Workflow({
+  project,
+  onStoreIfc,
+  onStoreCost,
+}: {
+  project: Project;
+  onStoreIfc: (file: File) => void;
+  onStoreCost: (file: File, rows: CostRow[]) => void;
+}) {
   const currentIfc = activeIfcVersion(project);
   const ifcFile = currentIfc?.file ?? null;
-  const [uploadedCostName, setUploadedCostName] = useState<string | null>(null);
-  const costDataset = uploadedCostName ?? (project.config.costSource || null);
+  const costRows = project.costData?.rows ?? [];
+  const costDataset = project.costData?.name ?? (project.config.costSource || null);
   const [drag, setDrag] = useState(false);
-  const [costRows, setCostRows] = useState<CostRow[]>([]);
   const [info, setInfo] = useState<IfcInfo | null>(null);
   const eur = (n: number) => `€${Math.round(n).toLocaleString("en-US")}`;
   const totalBudget = costRows.reduce((a, r) => a + r.total, 0);
   const handleCost = async (f?: File) => {
     if (!f) return;
-    try {
-      const rows = await parseCostFile(f);
-      if (!rows.length) { toast.error("No cost rows found in this file"); return; }
-      setCostRows(rows);
-      setUploadedCostName(f.name);
-      toast.success(`Cost data "${f.name}" loaded`, { description: `${rows.length} items · ${eur(rows.reduce((a, r) => a + r.total, 0))}` });
-    } catch (e) { console.error(e); toast.error("Could not read this cost file"); }
+    const loaded = await loadProjectCostFile(f);
+    if (!loaded) return;
+    onStoreCost(loaded.file, loaded.rows);
   };
   const downloadTemplate = () => {
     const csv = "Element ID,Description,Cost Code,Quantity,Unit,Unit Rate,Total Cost\nW-101,External wall,C-21.10.01,120,m2,280,33600\nD-11,Door,C-23.20.04,1,nr,2400,2400\nWIN-07,Window,C-23.30.02,1,nr,1850,1850\nSLAB-01,Ground slab,C-22.10.01,192,m2,500,96000\n";
@@ -155,7 +167,7 @@ function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file
                 <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base text-muted-foreground">
                   <span className="shrink-0">Loaded:</span>
                   <TruncatedText
-                    text={uploadedCostName ?? ""}
+                    text={project.costData?.name ?? ""}
                     maxWidthClass="max-w-[min(100%,16rem)]"
                     className="font-semibold text-foreground"
                   />
@@ -375,26 +387,55 @@ function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file
 
 const statusTone = { "On track": "success", Analyzing: "warning", Draft: "muted" } as const;
 
+type ProjectBaseline = { config: ProjectConfig; costData: ProjectCostData | null };
+
+function projectBaseline(p: Project): ProjectBaseline {
+  return { config: p.config, costData: p.costData };
+}
+
 function Index() {
   const [projects, setProjects] = useState<Project[]>(() => initialProjects());
-  const [configBaselines, setConfigBaselines] = useState<Record<string, Project["config"]>>(() =>
-    Object.fromEntries(initialProjects().map((p) => [p.id, p.config])),
+  const [projectBaselines, setProjectBaselines] = useState<Record<string, ProjectBaseline>>(() =>
+    Object.fromEntries(initialProjects().map((p) => [p.id, projectBaseline(p)])),
   );
   const [activeId, setActiveId] = useState("verona");
   const [view, setView] = useState<"workflow" | "config">("workflow");
   const [open, setOpen] = useState(true);
   const active = (projects.find((p) => p.id === activeId) ?? projects[0])!;
+  const activeBaseline = projectBaselines[active.id] ?? projectBaseline(active);
 
   const updateConfig = (config: Project["config"]) => {
     setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, config } : p)));
   };
 
+  const updateCostData = (costData: ProjectCostData | null) => {
+    setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, costData } : p)));
+  };
+
+  const storeCostOnProject = (file: File, rows: CostRow[]) => {
+    setProjects((ps) => ps.map((p) => (p.id === activeId ? applyProjectCostFile(p, file, rows) : p)));
+  };
+
+  const uploadProjectCost = async (file: File) => {
+    const loaded = await loadProjectCostFile(file);
+    if (!loaded) return;
+    storeCostOnProject(loaded.file, loaded.rows);
+  };
+
   const addProject = () => {
     const n = projects.length + 1;
-    const p: Project = { id: `p${Date.now()}`, code: `P${n}`, status: "Draft", ifc: "", ifcVersions: [], activeIfcVersion: 0,
-      config: { ...initialProjects()[2]!.config, name: `New Project ${n}`, costSource: "" } };
+    const p: Project = {
+      id: `p${Date.now()}`,
+      code: `P${n}`,
+      status: "Draft",
+      ifc: "",
+      ifcVersions: [],
+      activeIfcVersion: 0,
+      costData: null,
+      config: { ...initialProjects()[2]!.config, name: `New Project ${n}`, costSource: "" },
+    };
     setProjects((ps) => [...ps, p]);
-    setConfigBaselines((b) => ({ ...b, [p.id]: p.config }));
+    setProjectBaselines((b) => ({ ...b, [p.id]: projectBaseline(p) }));
     setActiveId(p.id);
     setView("config");
     toast.success("Project created — complete its configuration");
@@ -456,15 +497,24 @@ function Index() {
         <main className="min-w-0 flex-1 px-8 pt-10">
           <div className="mx-auto max-w-[1400px]">
             <div className={view === "workflow" ? undefined : "hidden"}>
-              <Workflow key={active.id} project={active} onStoreIfc={(file) => setProjects((ps) => ps.map((p) => (p.id === active.id ? appendIfcVersion(p, file) : p)))} />
+              <Workflow
+                key={active.id}
+                project={active}
+                onStoreIfc={(file) => setProjects((ps) => ps.map((p) => (p.id === active.id ? appendIfcVersion(p, file) : p)))}
+                onStoreCost={storeCostOnProject}
+              />
             </div>
             <div className={cn("pb-20", view !== "config" && "hidden")}>
               <ProjectConfigPanel
                 key={active.id}
                 config={active.config}
-                baseline={configBaselines[active.id] ?? active.config}
+                baseline={activeBaseline.config}
+                costData={active.costData}
+                baselineCostData={activeBaseline.costData}
                 onChange={updateConfig}
-                onSave={() => setConfigBaselines((b) => ({ ...b, [active.id]: active.config }))}
+                onCostUpload={uploadProjectCost}
+                onCostDataChange={updateCostData}
+                onSave={() => setProjectBaselines((b) => ({ ...b, [active.id]: projectBaseline(active) }))}
               />
             </div>
           </div>

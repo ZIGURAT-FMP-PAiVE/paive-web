@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendIfcVersion, ifcVersionLabel, initialProjects } from "./projects";
+import { appendIfcVersion, ifcVersionLabel, initialProjects, storeProjectCostFile } from "./projects";
 
 describe("IFC versions", () => {
   it("keeps the current model as version 1 and stores the next upload as version 2", () => {
@@ -17,5 +17,19 @@ describe("IFC versions", () => {
     expect(stored.ifcVersions[0]!.file).toBeNull();
     expect(stored.ifcVersions[1]!.file?.name).toBe("wall_move.ifc");
     expect(project.ifcVersions).toHaveLength(1);
+  });
+});
+
+describe("project cost file", () => {
+  it("stores parsed rows and filename on the project", () => {
+    const project = initialProjects()[0]!;
+    const file = new File(["x"], "verona_costs.csv", { type: "text/csv" });
+    const rows = [{ id: "W-101", description: "Wall", code: "C-1", quantity: 1, unit: "m2", rate: 100, total: 100 }];
+    const next = storeProjectCostFile(project, file, rows, "19 Nov 2026");
+
+    expect(next.costData?.name).toBe("verona_costs.csv");
+    expect(next.costData?.rows).toHaveLength(1);
+    expect(next.config.costSource).toBe("verona_costs.csv");
+    expect(project.costData).toBeNull();
   });
 });

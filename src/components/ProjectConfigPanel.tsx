@@ -1,7 +1,9 @@
-import { type ReactNode } from "react";
-import { Briefcase, ShieldCheck, Activity, Database, Save, RotateCcw } from "lucide-react";
+import { useRef, type ReactNode } from "react";
+import { Briefcase, ShieldCheck, Activity, Database, Save, RotateCcw, FileSpreadsheet, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { STAGES, type ProjectConfig, type Op } from "@/lib/projects";
+import { STAGES, type ProjectConfig, type ProjectCostData, type Op } from "@/lib/projects";
+import { TruncatedText } from "@/components/TruncatedText";
+import { cn } from "@/lib/utils";
 
 const field = "w-full rounded-xl border border-input bg-background/60 px-4 py-3 text-lg outline-none placeholder:text-muted-foreground focus:border-primary";
 
@@ -24,14 +26,23 @@ function Block({ n, label, title, desc, icon, children }: { n: string; label: st
 export function ProjectConfigPanel({
   config,
   baseline,
+  costData,
+  baselineCostData,
   onChange,
+  onCostUpload,
+  onCostDataChange,
   onSave,
 }: {
   config: ProjectConfig;
   baseline: ProjectConfig;
+  costData: ProjectCostData | null;
+  baselineCostData: ProjectCostData | null;
   onChange: (c: ProjectConfig) => void;
+  onCostUpload: (file: File) => Promise<void>;
+  onCostDataChange: (costData: ProjectCostData | null) => void;
   onSave: () => void;
 }) {
+  const costInput = useRef<HTMLInputElement>(null);
   const set = <K extends keyof ProjectConfig>(k: K, v: ProjectConfig[K]) => onChange({ ...config, [k]: v });
   const fw = config.functionWeight;
 
@@ -90,13 +101,60 @@ export function ProjectConfigPanel({
         <input type="range" min={0} max={100} step={5} value={fw} onChange={(e) => set("functionWeight", Number(e.target.value))} className="mt-4 w-full accent-primary" aria-label="Function performance weight" />
       </Block>
 
-      <Block n="04" label="COST DATA" title="Cost source" desc="The rate source is stored with every value result." icon={<Database className="h-7 w-7" />}>
+      <Block n="04" label="COST DATA" title="Cost source" desc="Upload a rate file or describe an external database. The file is kept on this project for workflow analysis." icon={<Database className="h-7 w-7" />}>
         <label className="block"><span className="mb-2 block text-base font-medium">Cost database or rate file reference</span>
           <input className={field} value={config.costSource} onChange={(e) => set("costSource", e.target.value)} placeholder="Describe the source or file name" /></label>
+        <div className="mt-5 flex flex-wrap items-center gap-4">
+          <button
+            type="button"
+            onClick={() => costInput.current?.click()}
+            className="flex items-center gap-2 rounded-xl border border-secondary px-5 py-3 font-medium text-foreground hover:bg-secondary/15"
+          >
+            <FileSpreadsheet className="h-5 w-5 text-secondary" />
+            Upload cost file
+          </button>
+          <input
+            ref={costInput}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void onCostUpload(file);
+            }}
+          />
+          <span className="text-base text-muted-foreground">Supports .xlsx, .xls, .csv</span>
+        </div>
+        {costData && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary bg-primary/10 p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <FileSpreadsheet className="h-6 w-6 shrink-0 text-primary" />
+              <TruncatedText text={costData.name} maxWidthClass="max-w-[min(100%,18rem)]" className="font-semibold text-foreground" />
+              <span className="shrink-0 text-base text-muted-foreground">
+                {costData.sizeLabel} · {costData.rows.length} items · {costData.uploadedAt}
+              </span>
+            </div>
+            <span className={cn("inline-flex items-center rounded-full bg-success/15 px-3 py-1 text-base font-medium text-success")}>
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+              Stored
+            </span>
+          </div>
+        )}
       </Block>
 
       <div className="flex justify-end gap-3">
-        <button onClick={() => { onChange(baseline); toast.info("Changes discarded"); }} className="flex items-center gap-2 rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent"><RotateCcw className="h-5 w-5" />Reset</button>
+        <button
+          onClick={() => {
+            onChange(baseline);
+            onCostDataChange(baselineCostData);
+            toast.info("Changes discarded");
+          }}
+          className="flex items-center gap-2 rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent"
+        >
+          <RotateCcw className="h-5 w-5" />
+          Reset
+        </button>
         <button onClick={() => { if (!config.name.trim()) { toast.error("Project name is required"); return; } onSave(); toast.success("Configuration updated", { description: config.name }); }} className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"><Save className="h-5 w-5" />Save Configuration</button>
       </div>
     </div>
