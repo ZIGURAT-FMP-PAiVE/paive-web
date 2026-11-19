@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Briefcase, ShieldCheck, Activity, Database, Save, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { STAGES, type ProjectConfig, type Op } from "@/lib/projects";
@@ -21,10 +21,19 @@ function Block({ n, label, title, desc, icon, children }: { n: string; label: st
   );
 }
 
-export function ProjectConfigPanel({ config, onSave }: { config: ProjectConfig; onSave: (c: ProjectConfig) => void }) {
-  const [c, setC] = useState(config);
-  const set = <K extends keyof ProjectConfig>(k: K, v: ProjectConfig[K]) => setC((p) => ({ ...p, [k]: v }));
-  const fw = c.functionWeight;
+export function ProjectConfigPanel({
+  config,
+  baseline,
+  onChange,
+  onSave,
+}: {
+  config: ProjectConfig;
+  baseline: ProjectConfig;
+  onChange: (c: ProjectConfig) => void;
+  onSave: () => void;
+}) {
+  const set = <K extends keyof ProjectConfig>(k: K, v: ProjectConfig[K]) => onChange({ ...config, [k]: v });
+  const fw = config.functionWeight;
 
   return (
     <div className="space-y-6">
@@ -37,13 +46,13 @@ export function ProjectConfigPanel({ config, onSave }: { config: ProjectConfig; 
       <Block n="01" label="PROJECT" title="Project information" icon={<Briefcase className="h-7 w-7" />}>
         <div className="grid gap-5 md:grid-cols-2">
           <label className="block"><span className="mb-2 block text-base font-medium">Project name</span>
-            <input className={field} value={c.name} onChange={(e) => set("name", e.target.value)} /></label>
+            <input className={field} value={config.name} onChange={(e) => set("name", e.target.value)} /></label>
           <label className="block"><span className="mb-2 block text-base font-medium">Project stage</span>
-            <select className={field} value={c.stage} onChange={(e) => set("stage", e.target.value)}>
+            <select className={field} value={config.stage} onChange={(e) => set("stage", e.target.value)}>
               {STAGES.map((s) => <option key={s}>{s}</option>)}
             </select></label>
           <label className="block md:col-span-2"><span className="mb-2 block text-base font-medium">Typology</span>
-            <input className={field} value={c.typology} onChange={(e) => set("typology", e.target.value)} placeholder="e.g. External walls" /></label>
+            <input className={field} value={config.typology} onChange={(e) => set("typology", e.target.value)} placeholder="e.g. External walls" /></label>
         </div>
       </Block>
 
@@ -52,8 +61,9 @@ export function ProjectConfigPanel({ config, onSave }: { config: ProjectConfig; 
           <div className="hidden grid-cols-[2fr_1fr_1fr_100px] gap-4 px-2 text-base font-medium text-muted-foreground md:grid">
             <span>Function / Metric</span><span>Operator</span><span>Target</span><span>Unit</span>
           </div>
-          {c.targets.map((t, i) => {
-            const upd = (patch: Partial<typeof t>) => set("targets", c.targets.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+          {config.targets.map((t, i) => {
+            const upd = (patch: Partial<typeof t>) =>
+              onChange({ ...config, targets: config.targets.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
             return (
               <div key={t.key} className="grid items-center gap-4 rounded-xl border border-border bg-background/40 p-4 md:grid-cols-[2fr_1fr_1fr_100px]">
                 <div><div className="font-semibold">{t.name}</div><div className="text-base text-muted-foreground">{t.metric}</div></div>
@@ -82,12 +92,12 @@ export function ProjectConfigPanel({ config, onSave }: { config: ProjectConfig; 
 
       <Block n="04" label="COST DATA" title="Cost source" desc="The rate source is stored with every value result." icon={<Database className="h-7 w-7" />}>
         <label className="block"><span className="mb-2 block text-base font-medium">Cost database or rate file reference</span>
-          <input className={field} value={c.costSource} onChange={(e) => set("costSource", e.target.value)} placeholder="Describe the source or file name" /></label>
+          <input className={field} value={config.costSource} onChange={(e) => set("costSource", e.target.value)} placeholder="Describe the source or file name" /></label>
       </Block>
 
       <div className="flex justify-end gap-3">
-        <button onClick={() => { setC(config); toast.info("Changes discarded"); }} className="flex items-center gap-2 rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent"><RotateCcw className="h-5 w-5" />Reset</button>
-        <button onClick={() => { if (!c.name.trim()) { toast.error("Project name is required"); return; } onSave(c); toast.success("Configuration updated", { description: c.name }); }} className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"><Save className="h-5 w-5" />Save Configuration</button>
+        <button onClick={() => { onChange(baseline); toast.info("Changes discarded"); }} className="flex items-center gap-2 rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent"><RotateCcw className="h-5 w-5" />Reset</button>
+        <button onClick={() => { if (!config.name.trim()) { toast.error("Project name is required"); return; } onSave(); toast.success("Configuration updated", { description: config.name }); }} className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"><Save className="h-5 w-5" />Save Configuration</button>
       </div>
     </div>
   );

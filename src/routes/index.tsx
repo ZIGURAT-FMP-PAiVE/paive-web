@@ -67,7 +67,8 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
 function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file: File) => void }) {
   const currentIfc = activeIfcVersion(project);
   const ifcFile = currentIfc?.file ?? null;
-  const [cost, setCost] = useState<string | null>(project.config.costSource || null);
+  const [uploadedCostName, setUploadedCostName] = useState<string | null>(null);
+  const costDataset = uploadedCostName ?? (project.config.costSource || null);
   const [drag, setDrag] = useState(false);
   const [costRows, setCostRows] = useState<CostRow[]>([]);
   const [info, setInfo] = useState<IfcInfo | null>(null);
@@ -78,7 +79,8 @@ function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file
     try {
       const rows = await parseCostFile(f);
       if (!rows.length) { toast.error("No cost rows found in this file"); return; }
-      setCostRows(rows); setCost(f.name);
+      setCostRows(rows);
+      setUploadedCostName(f.name);
       toast.success(`Cost data "${f.name}" loaded`, { description: `${rows.length} items · ${eur(rows.reduce((a, r) => a + r.total, 0))}` });
     } catch (e) { console.error(e); toast.error("Could not read this cost file"); }
   };
@@ -153,7 +155,7 @@ function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file
                 <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base text-muted-foreground">
                   <span className="shrink-0">Loaded:</span>
                   <TruncatedText
-                    text={cost ?? ""}
+                    text={uploadedCostName ?? ""}
                     maxWidthClass="max-w-[min(100%,16rem)]"
                     className="font-semibold text-foreground"
                   />
@@ -175,9 +177,9 @@ function Workflow({ project, onStoreIfc }: { project: Project; onStoreIfc: (file
                 ["Building Area", "18,450 m²"],
                 [
                   "Cost Dataset",
-                  cost ? (
+                  costDataset ? (
                     <TruncatedText
-                      text={cost}
+                      text={costDataset}
                       maxWidthClass="max-w-[min(100%,14rem)]"
                       className="ml-auto font-semibold text-foreground"
                     />
@@ -375,16 +377,26 @@ const statusTone = { "On track": "success", Analyzing: "warning", Draft: "muted"
 
 function Index() {
   const [projects, setProjects] = useState<Project[]>(() => initialProjects());
+  const [configBaselines, setConfigBaselines] = useState<Record<string, Project["config"]>>(() =>
+    Object.fromEntries(initialProjects().map((p) => [p.id, p.config])),
+  );
   const [activeId, setActiveId] = useState("verona");
   const [view, setView] = useState<"workflow" | "config">("workflow");
   const [open, setOpen] = useState(true);
   const active = (projects.find((p) => p.id === activeId) ?? projects[0])!;
 
+  const updateConfig = (config: Project["config"]) => {
+    setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, config } : p)));
+  };
+
   const addProject = () => {
     const n = projects.length + 1;
     const p: Project = { id: `p${Date.now()}`, code: `P${n}`, status: "Draft", ifc: "", ifcVersions: [], activeIfcVersion: 0,
       config: { ...initialProjects()[2]!.config, name: `New Project ${n}`, costSource: "" } };
-    setProjects((ps) => [...ps, p]); setActiveId(p.id); setView("config");
+    setProjects((ps) => [...ps, p]);
+    setConfigBaselines((b) => ({ ...b, [p.id]: p.config }));
+    setActiveId(p.id);
+    setView("config");
     toast.success("Project created — complete its configuration");
   };
 
@@ -446,12 +458,15 @@ function Index() {
             <div className={view === "workflow" ? undefined : "hidden"}>
               <Workflow key={active.id} project={active} onStoreIfc={(file) => setProjects((ps) => ps.map((p) => (p.id === active.id ? appendIfcVersion(p, file) : p)))} />
             </div>
-            {view === "config" && (
-              <div className="pb-20">
-                <ProjectConfigPanel key={active.id} config={active.config}
-                  onSave={(c) => setProjects((ps) => ps.map((p) => (p.id === active.id ? { ...p, config: c } : p)))} />
-              </div>
-            )}
+            <div className={cn("pb-20", view !== "config" && "hidden")}>
+              <ProjectConfigPanel
+                key={active.id}
+                config={active.config}
+                baseline={configBaselines[active.id] ?? active.config}
+                onChange={updateConfig}
+                onSave={() => setConfigBaselines((b) => ({ ...b, [active.id]: active.config }))}
+              />
+            </div>
           </div>
         </main>
       </div>
