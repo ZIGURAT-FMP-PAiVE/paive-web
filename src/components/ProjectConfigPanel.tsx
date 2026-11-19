@@ -101,10 +101,8 @@ export function ProjectConfigPanel({
         <input type="range" min={0} max={100} step={5} value={fw} onChange={(e) => set("functionWeight", Number(e.target.value))} className="mt-4 w-full accent-primary" aria-label="Function performance weight" />
       </Block>
 
-      <Block n="04" label="COST DATA" title="Cost source" desc="Upload a rate file or describe an external database. The file is kept on this project for workflow analysis." icon={<Database className="h-7 w-7" />}>
-        <label className="block"><span className="mb-2 block text-base font-medium">Cost database or rate file reference</span>
-          <input className={field} value={config.costSource} onChange={(e) => set("costSource", e.target.value)} placeholder="Describe the source or file name" /></label>
-        <div className="mt-5 flex flex-wrap items-center gap-4">
+      <Block n="04" label="COST DATA" title="Cost source" desc="Upload a rate file for this project. The file is kept for workflow analysis." icon={<Database className="h-7 w-7" />}>
+        <div className="flex flex-wrap items-center gap-4">
           <button
             type="button"
             onClick={() => costInput.current?.click()}
