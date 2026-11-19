@@ -27,10 +27,13 @@ export type IfcVersion = {
   elementCount: number | null;
 };
 
+export const PROJECT_STATUSES = ["Analyzing", "On track", "Draft"] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
 export type Project = {
   id: string;
   code: string;
-  status: "On track" | "Analyzing" | "Draft";
+  status: ProjectStatus;
   ifc: string;
   ifcVersions: IfcVersion[];
   activeIfcVersion: number;

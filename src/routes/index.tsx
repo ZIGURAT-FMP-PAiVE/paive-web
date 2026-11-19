@@ -12,9 +12,11 @@ import {
   defaultProjectConfig,
   ifcVersionLabel,
   resetProjectToDefaults,
+  PROJECT_STATUSES,
   setIfcVersionElementCount,
   type Project,
   type ProjectCostData,
+  type ProjectStatus,
 } from "@/lib/projects";
 import { applyProjectCostFile, loadProjectCostFile } from "@/lib/projectCost";
 import {
@@ -432,6 +434,33 @@ function Workflow({
 }
 
 const statusTone = { "On track": "success", Analyzing: "warning", Draft: "muted" } as const;
+const statusSelectClass: Record<ProjectStatus, string> = {
+  "On track": "bg-success/15 text-success border-success/40",
+  Analyzing: "bg-warning/15 text-warning border-warning/40",
+  Draft: "bg-muted text-muted-foreground border-border",
+};
+
+function ProjectStatusSelect({ value, onChange }: { value: ProjectStatus; onChange: (status: ProjectStatus) => void }) {
+  return (
+    <select
+      value={value}
+      aria-label="Project status"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onChange={(e) => onChange(e.target.value as ProjectStatus)}
+      className={cn(
+        "mt-1 max-w-full cursor-pointer rounded-full border px-3 py-1 text-base font-medium outline-none focus:ring-2 focus:ring-primary/50",
+        statusSelectClass[value],
+      )}
+    >
+      {PROJECT_STATUSES.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 function projectBaseline(p: Project): ProjectBaseline {
   return {
@@ -482,6 +511,10 @@ function Index() {
 
   const updateCostData = (costData: ProjectCostData | null) => {
     setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, costData } : p)));
+  };
+
+  const updateProjectStatus = (id: string, status: ProjectStatus) => {
+    setProjects((ps) => ps.map((p) => (p.id === id ? { ...p, status } : p)));
   };
 
   const storeCostOnProject = (file: File, rows: CostRow[]) => {
@@ -555,7 +588,9 @@ function Index() {
             <button onClick={() => setOpen(!open)} aria-label="Toggle projects panel" className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
               {open ? <PanelLeftClose className="h-6 w-6" /> : <PanelLeftOpen className="h-6 w-6" />}
             </button>
-            <div className="hidden border-l border-border pl-4 text-sm text-muted-foreground lg:block">Project AI Value Engineering</div>
+            <div className="hidden border-l border-border pl-4 text-[28px] leading-tight text-muted-foreground lg:block">
+              Project AI Value Engineering
+            </div>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
             {([["workflow", "Workflow", LayoutDashboard], ["config", "Configuration", Settings2]] as const).map(([k, l, I]) => (
@@ -584,7 +619,7 @@ function Index() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold">{p.config.name}</span>
                       <span className="block truncate text-base text-muted-foreground">{p.config.stage}</span>
-                      <span className="mt-1 block"><Badge tone={statusTone[p.status]}>{p.status}</Badge></span>
+                      <ProjectStatusSelect value={p.status} onChange={(status) => updateProjectStatus(p.id, status)} />
                     </span>
                   )}
                 </button>
