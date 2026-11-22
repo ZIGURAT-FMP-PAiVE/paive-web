@@ -951,8 +951,8 @@ function Index() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 shadow-[inset_0_-1px_0_0] shadow-primary/20 backdrop-blur-xl">
         <div className="flex h-20 items-center justify-between px-6">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="shrink-0 rounded-lg bg-card px-3 py-1.5 shadow-sm ring-1 ring-border">
-              <img src="/paive-logo.png" alt="PAiVE" className="h-9 w-auto" width={120} height={36} />
+            <div className="flex shrink-0 items-center justify-center rounded-lg bg-white px-6 py-3 shadow-sm ring-1 ring-border">
+              <img src="/paive-logo.png" alt="PAiVE" className="h-10 w-auto" width={140} height={40} />
             </div>
             <Button
               type="button"
@@ -968,6 +968,7 @@ function Index() {
               Project AI Value Engineering
             </div>
           </div>
+          <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 rounded-xl border border-border bg-card p-1.5">
             {([["workflow", "Workflow", LayoutDashboard], ["config", "Configuration", Settings2]] as const).map(([k, l, I]) => (
               <Button
@@ -996,6 +997,7 @@ function Index() {
               </div>
             </div>
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-lg font-semibold text-secondary-foreground">VV</div>
+          </div>
           </div>
         </div>
       </header>
