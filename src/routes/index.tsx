@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Toaster, toast } from "sonner";
-import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
-import { BimViewer, type IfcInfo } from "@/components/BimViewer";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
+import type { IfcInfo } from "@/components/BimViewer";
+import { BimModelViewerPanel } from "@/components/BimModelViewerPanel";
 import type { CostRow } from "@/lib/costFile";
 import { cn } from "@/lib/utils";
 import {
@@ -39,15 +41,27 @@ import {
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  dataTableZebraClass,
+} from "@/components/ui/table";
 import { TruncatedText } from "@/components/TruncatedText";
 import {
+  D1BaselinePlaceholder,
   D1BlockedPanel,
   D1ResultPanel,
   D2BlankOptionCard,
   D2ComparisonMatrix,
   D2OptionsPanel,
-  DecisionNotice,
   PaiveLogTable,
+  Ve5HumanGatePanel,
   PaiveWallsTable,
   VeReportBlock,
 } from "@/components/paive/PaiveRunUI";
@@ -98,36 +112,7 @@ function Card({
     <div className={cn(variant === "primary" ? "glass p-8" : "panel-secondary p-8", className)}>{children}</div>
   );
 }
-const workflowSectionClass = "scroll-mt-28 border-t border-border pt-10";
-
-type WorkflowStep = { id: number; label: string; hasData: boolean };
-
-function WorkflowStepNav({ steps }: { steps: WorkflowStep[] }) {
-  return (
-    <nav
-      aria-label="Workflow sections"
-      className="sticky top-28 hidden h-fit w-36 shrink-0 flex-col gap-2 self-start xl:flex"
-    >
-      {steps.map((step) => (
-        <a
-          key={step.id}
-          href={`#workflow-step-${step.id}`}
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <span
-            className={cn(
-              "h-2.5 w-2.5 shrink-0 rounded-full border border-border",
-              step.hasData ? "border-primary bg-primary" : "bg-muted",
-            )}
-            aria-hidden
-          />
-          <span className="font-medium">{step.id}.</span>
-          <span className="truncate">{step.label}</span>
-        </a>
-      ))}
-    </nav>
-  );
-}
+const workflowSectionClass = "border-t border-border pt-10";
 
 function SectionTitle({
   children,
@@ -155,16 +140,6 @@ function SectionTitle({
       {sub ? <p className="mt-1 text-sm text-muted-foreground">{sub}</p> : null}
     </div>
   );
-}
-
-function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "primary" | "success" | "warning" | "muted" }) {
-  const map = {
-    primary: "bg-primary/15 text-primary",
-    success: "bg-success/15 text-success",
-    warning: "bg-warning/15 text-warning",
-    muted: "bg-muted text-muted-foreground",
-  };
-  return <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-base font-medium", map[tone])}>{children}</span>;
 }
 
 function IfcVersionHistoryCard({ project }: { project: Project }) {
@@ -200,107 +175,6 @@ function IfcVersionHistoryCard({ project }: { project: Project }) {
         </ol>
       )}
     </Card>
-  );
-}
-
-function ElementPropertiesContent({ ifcFile, info }: { ifcFile: File | null; info: IfcInfo | null }) {
-  const Grid = ({ rows }: { rows: [string, string][] }) => (
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-      {rows.map(([k, v], i) => (
-        <div key={k + i}>
-          <dt className="text-sm text-muted-foreground">{k}</dt>
-          <dd className="break-all font-medium">{v || "—"}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-
-  return (
-    <>
-      <h3 className="mb-4 text-lg font-semibold">Element Properties</h3>
-      {!ifcFile ? null : !info ? (
-        <p className="text-base text-muted-foreground">Click an element in the model to see its properties.</p>
-      ) : (
-        <div className="space-y-5">
-          <div>
-            <h4 className="mb-3 font-semibold text-primary">Identification</h4>
-            <Grid
-              rows={[
-                ["Name", info.name || "—"],
-                ["IFC Class", info.ifcClass],
-                ["GUID", info.guid],
-                ["Express ID", info.expressId],
-                ["Object Type", info.objectType || "—"],
-                ["Tag", info.tag || "—"],
-              ]}
-            />
-          </div>
-          {info.groups.map((g, i) => (
-            <details key={g.name + i} className="border-t border-border pt-4" open={i < 2}>
-              <summary className="mb-3 cursor-pointer font-semibold">
-                {g.name} <span className="text-sm text-muted-foreground">({g.props.length})</span>
-              </summary>
-              <Grid rows={g.props} />
-            </details>
-          ))}
-          {!info.groups.length && (
-            <p className="border-t border-border pt-4 text-muted-foreground">No property sets on this element.</p>
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
-function BimModelViewerPanel({
-  ifcFile,
-  projectId,
-  activeVersion,
-  selectedId,
-  onSelect,
-  onInspect,
-  onModelLoaded,
-  info,
-}: {
-  ifcFile: File | null;
-  projectId: string;
-  activeVersion: number;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onInspect: (info: IfcInfo | null) => void;
-  onModelLoaded: (stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
-  info: IfcInfo | null;
-}) {
-  return (
-    <div className="glass flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Box className="h-6 w-6 text-primary" />
-          <h3 className="text-lg font-semibold">BIM Model Viewer</h3>
-        </div>
-        <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
-      </div>
-      <div className="flex min-h-[min(58vh,680px)] flex-col lg:min-h-[480px] lg:flex-row">
-        <div className="relative min-h-[480px] flex-1 lg:min-h-0">
-          <div className="absolute inset-0">
-            <BimViewer
-              key={`${projectId}-${activeVersion}-${ifcFile?.name ?? "no-ifc"}`}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              file={ifcFile}
-              onInspect={onInspect}
-              onModelLoaded={onModelLoaded}
-            />
-          </div>
-          <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
-            Drag to orbit · Scroll to zoom · Click to select
-          </div>
-        </div>
-        <div className="max-h-[min(40vh,420px)] shrink-0 overflow-y-auto border-t border-border bg-background/40 p-6 lg:max-h-none lg:w-[min(100%,24rem)] lg:border-l lg:border-t-0 xl:w-[28rem]">
-          <ElementPropertiesContent ifcFile={ifcFile} info={info} />
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -411,27 +285,6 @@ function Workflow({
     return "—";
   })();
 
-  const workflowSteps: WorkflowStep[] = [
-    {
-      id: 1,
-      label: "Upload",
-      hasData: uploadedIfcVersions(project).length > 0 || Boolean(project.costData),
-    },
-    { id: 2, label: "Analysis", hasData: Boolean(ifcFile) },
-    {
-      id: 3,
-      label: "VE",
-      hasData: Boolean(ifcFile && fixtureRun && fixtureRun.status !== "blocked"),
-    },
-    {
-      id: 4,
-      label: "Decision",
-      hasData: Boolean(
-        decideResult || decision || (fixtureRun?.ve6?.text && fixtureRun.status !== "blocked"),
-      ),
-    },
-  ];
-
   const handleIfc = (f?: File) => {
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
@@ -441,15 +294,15 @@ function Workflow({
   };
 
   return (
-    <div className="flex items-start gap-8">
-      <main className="min-w-0 flex-1 space-y-0 pb-20">
+    <div>
+      <main className="space-y-0 pb-20">
         <div className="mb-10">
           <h1 className="text-3xl font-bold tracking-tight">{project.config.name} - VE Workflow</h1>
           <p className="mt-2 text-base text-muted-foreground">Upload, analyse, compare and approve design changes in one place.</p>
         </div>
 
         {/* Section 1 */}
-        <section id="workflow-step-1">
+        <section>
           <SectionTitle
             variant="workflow"
             sub="Each upload is kept as the next version (v01, v02, …). Only files you upload are stored."
@@ -460,14 +313,16 @@ function Workflow({
           <Card className="lg:col-span-2">
             {uploadedIfcVersions(project).length > 0 && (
               <div className="mb-6 flex flex-wrap justify-end gap-4">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={onClearIfcVersions}
-                  className="flex shrink-0 items-center gap-2 rounded-xl border border-border px-4 py-2 text-base font-medium text-muted-foreground hover:border-warning hover:text-warning"
+                  className="shrink-0 text-muted-foreground hover:border-warning hover:text-warning"
                 >
-                  <RotateCcw className="h-4 w-4" />
+                  <RotateCcw />
                   Clear IFC versions
-                </button>
+                </Button>
               </div>
             )}
             <div
@@ -490,13 +345,14 @@ function Workflow({
               />
               <p className="relative z-[1] mt-4 text-lg font-medium">Drag & drop your IFC file here</p>
               <p className="relative z-[1] text-base text-muted-foreground">IFC 2x3 / IFC4 · up to 500 MB</p>
-              <button
+              <Button
                 type="button"
+                size="lg"
+                className="relative z-[1] mt-5"
                 onClick={() => ifcInput.current?.click()}
-                className="relative z-[1] mt-5 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"
               >
                 Select IFC File
-              </button>
+              </Button>
               <input ref={ifcInput} type="file" accept=".ifc" hidden onChange={(e) => { handleIfc(e.target.files?.[0]); e.target.value = ""; }} />
             </div>
             {uploadedIfcVersions(project).length > 0 && (
@@ -519,16 +375,26 @@ function Workflow({
                         <span className="truncate">{v.name}</span>
                         <span className="shrink-0 text-base text-muted-foreground">{v.sizeLabel}</span>
                       </div>
-                      {current ? <Badge tone="success"><CheckCircle2 className="mr-1 h-4 w-4" />Current</Badge> : <Badge tone="muted">Stored</Badge>}
+                      {current ? (
+                        <Badge variant="success" className="gap-1 text-sm font-medium">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Current
+                        </Badge>
+                      ) : (
+                        <Badge variant="muted" className="text-sm font-medium">
+                          Stored
+                        </Badge>
+                      )}
                     </li>
                   );
                 })}
               </ul>
             )}
             <div className="mt-5 flex flex-wrap items-center gap-4">
-              <button onClick={() => costInput.current?.click()} className="flex items-center gap-2 rounded-xl border border-secondary px-5 py-3 font-medium text-foreground hover:bg-secondary/15">
-                <FileSpreadsheet className="h-5 w-5 text-secondary" /> Upload Cost File
-              </button>
+              <Button type="button" variant="outline" onClick={() => costInput.current?.click()}>
+                <FileSpreadsheet className="text-secondary" />
+                Upload Cost File
+              </Button>
               <input ref={costInput} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => { void handleCost(e.target.files?.[0]); e.target.value = ""; }} />
               {project.costData ? (
                 <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base text-muted-foreground">
@@ -578,10 +444,10 @@ function Workflow({
         </section>
 
         {/* Section 2 */}
-        <section id="workflow-step-2" className={workflowSectionClass}>
+        <section className={workflowSectionClass}>
           <SectionTitle variant="workflow">2. Change Analysis</SectionTitle>
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
-            <div className="min-w-0 space-y-6 xl:max-w-[50%] xl:flex-[1_1_50%] xl:border-r xl:border-border xl:pr-6">
+          <div className="space-y-6">
+            <div className="space-y-6">
               <Card>
                 {fixtureRun?.status === "blocked" && fixtureRun.blocked ? (
                   <>
@@ -591,7 +457,14 @@ function Workflow({
                 ) : fixtureRun?.d1 ? (
                   <D1ResultPanel run={fixtureRun} />
                 ) : (
-                  <SectionTitle>Baseline</SectionTitle>
+                  <>
+                    <SectionTitle>Baseline</SectionTitle>
+                    {ifcFile ? (
+                      <D1BaselinePlaceholder />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Upload an IFC model to start change analysis.</p>
+                    )}
+                  </>
                 )}
               </Card>
               <Card>
@@ -606,29 +479,35 @@ function Workflow({
                 />
               </Card>
             </div>
-            <div className="min-w-0 flex-1 xl:pl-2">
-              <BimModelViewerPanel
-                ifcFile={ifcFile}
-                projectId={project.id}
-                activeVersion={project.activeIfcVersion}
-                selectedId={viewerSelection}
-                onSelect={(id) => {
-                  setSel(id);
-                  setWallGuid(id);
-                }}
-                onInspect={setInfo}
-                onModelLoaded={(stats) => {
-                  setIfcElementCount(stats.elementCount);
-                  if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
-                }}
-                info={info}
-              />
-            </div>
+            <BimModelViewerPanel
+              ifcFile={ifcFile}
+              projectId={project.id}
+              activeVersion={project.activeIfcVersion}
+              selectedId={viewerSelection}
+              onSelect={(id) => {
+                setSel(id);
+                setWallGuid(id);
+              }}
+              onInspect={setInfo}
+              onModelLoaded={(stats) => {
+                setIfcElementCount(stats.elementCount);
+                if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
+              }}
+              info={info}
+              paiveWall={
+                fixtureRun?.walls?.find(
+                  (w) =>
+                    (info != null && (w.guid === info.guid || w.guid === info.expressId)) ||
+                    (viewerSelection != null &&
+                      (w.guid === viewerSelection || String(w.guid) === viewerSelection)),
+                ) ?? null
+              }
+            />
           </div>
         </section>
 
         {/* Section 3 */}
-        <section id="workflow-step-3" className={workflowSectionClass}>
+        <section className={workflowSectionClass}>
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
               <SectionTitle variant="workflow" sub="AI-generated alternatives for the detected model changes.">
@@ -653,52 +532,23 @@ function Workflow({
                   <D2ComparisonMatrix placeholder />
                 )}
               </Card>
-              <Card variant="secondary" className="mt-6">
+              <Card
+                variant="secondary"
+                className={cn("mt-6", !fixtureRun.d2?.options?.length && "opacity-95")}
+              >
                 <SectionTitle sub="Reason is required. Calls decide() on the fixture back end.">
                   Human gate (VE5)
                 </SectionTitle>
-                <label className="block text-base text-muted-foreground" htmlFor="paive-reviewer">
-                  Reviewer
-                </label>
-                <input
-                  id="paive-reviewer"
-                  value={reviewer}
-                  onChange={(e) => setReviewer(e.target.value)}
-                  className="mt-2 w-full max-w-md rounded-xl border border-input bg-background/50 px-4 py-3 text-base outline-none focus:border-primary"
+                <Ve5HumanGatePanel
+                  reviewer={reviewer}
+                  onReviewerChange={setReviewer}
+                  decisionReason={decisionReason}
+                  onDecisionReasonChange={setDecisionReason}
+                  hasOptions={Boolean(fixtureRun.d2?.options?.length)}
+                  onAccept={() => submitPaiveDecision("accept")}
+                  onReject={() => submitPaiveDecision("reject")}
+                  result={decideResult}
                 />
-                <label className="mt-4 block text-base text-muted-foreground" htmlFor="paive-reason">
-                  Reason
-                </label>
-                <textarea
-                  id="paive-reason"
-                  value={decisionReason}
-                  onChange={(e) => setDecisionReason(e.target.value)}
-                  rows={4}
-                  placeholder="Why accept or reject this option?"
-                  className="mt-2 w-full rounded-xl border border-input bg-background/50 p-4 text-base outline-none placeholder:text-muted-foreground focus:border-primary"
-                />
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    disabled={!decisionReason.trim() || !fixtureRun.d2?.options?.length}
-                    onClick={() => submitPaiveDecision("accept")}
-                    className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Check className="h-5 w-5" />
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!decisionReason.trim() || !fixtureRun.d2?.options?.length}
-                    onClick={() => submitPaiveDecision("reject")}
-                    className="flex items-center gap-2 rounded-xl border border-destructive px-6 py-3 font-medium text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <X className="h-5 w-5" />
-                    Reject
-                  </button>
-                </div>
-                <p className="mt-3 text-base text-muted-foreground">No changes are made to the BIM model.</p>
-                <DecisionNotice result={decideResult} />
               </Card>
             </>
           ) : !ifcFile ? (
@@ -723,7 +573,7 @@ function Workflow({
                     key={o.key}
                     onClick={() => setOpt(o.key)}
                     className={cn(
-                      "glass relative border-2 p-8 text-left transition-all duration-200 hover:-translate-y-1",
+                      "glass relative border-2 p-8 text-left motion-safe:transition-all motion-safe:duration-200 motion-safe:hover:-translate-y-1",
                       rankAccent(o.rank).border,
                       rankOptionGlowClass(o.rank, opt === o.key),
                       opt !== o.key && "opacity-90",
@@ -755,11 +605,15 @@ function Workflow({
                       </li>
                       <li className="flex justify-between">
                         <span className="text-muted-foreground">Risk</span>
-                        <Badge tone={o.risk === "Low" ? "success" : "warning"}>{o.risk}</Badge>
+                        <Badge variant={o.risk === "Low" ? "success" : "warning"} className="text-sm font-medium">
+                          {o.risk}
+                        </Badge>
                       </li>
                       <li className="flex justify-between">
                         <span className="text-muted-foreground">Compliance</span>
-                        <Badge tone="success">Pass</Badge>
+                        <Badge variant="success" className="text-sm font-medium">
+                          Pass
+                        </Badge>
                       </li>
                     </ul>
                   </button>
@@ -767,24 +621,21 @@ function Workflow({
               </div>
               <Card variant="secondary" className="mt-6">
                 <SectionTitle>Comparison Matrix</SectionTitle>
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-border text-muted-foreground">
-                      <th className="pb-3 font-medium">Criteria</th>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Criteria</TableHead>
                       {OPTIONS.map((o) => (
-                        <th
+                        <TableHead
                           key={o.key}
-                          className={cn(
-                            "pb-3 font-semibold",
-                            rankHeaderClass(o.rank, opt === o.key),
-                          )}
+                          className={cn("normal-case tracking-normal", rankHeaderClass(o.rank, opt === o.key))}
                         >
                           Option {o.key}
-                        </th>
+                        </TableHead>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className={dataTableZebraClass}>
                     {(
                       [
                         ["Cost", "cost"],
@@ -794,31 +645,27 @@ function Workflow({
                         ["Carbon Impact", "carbon"],
                       ] as const
                     ).map(([label, k]) => (
-                      <tr key={label} className="border-b border-border last:border-0">
-                        <td className="py-4 text-muted-foreground">{label}</td>
+                      <TableRow key={label}>
+                        <TableCell className="text-muted-foreground">{label}</TableCell>
                         {OPTIONS.map((o) => (
-                          <td
+                          <TableCell
                             key={o.key}
-                            className={cn(
-                              "py-4 font-medium",
-                              k && "tabular-nums",
-                              opt === o.key && rankSelectedCellClass(o.rank),
-                            )}
+                            className={cn("font-medium", k && "tabular-nums", opt === o.key && rankSelectedCellClass(o.rank))}
                           >
                             {k ? o[k] : "Pass"}
-                          </td>
+                          </TableCell>
                         ))}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </Card>
             </>
           )}
         </section>
 
         {/* Section 4 */}
-        <section id="workflow-step-4" className={workflowSectionClass}>
+        <section className={workflowSectionClass}>
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
               <SectionTitle variant="workflow">4. Decision & Approval</SectionTitle>
@@ -830,15 +677,10 @@ function Workflow({
                     <PaiveLogTable entries={paiveLog} />
                   </Card>
                   <div className="flex justify-end">
-                    <button
-                      type="button"
-                      disabled
-                      title="PDF export will use the same JSON later"
-                      className="flex cursor-not-allowed items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium opacity-50"
-                    >
-                      <Download className="h-5 w-5" />
+                    <Button type="button" variant="outline" size="lg" disabled title="PDF export will use the same JSON later">
+                      <Download />
                       Export PDF (coming soon)
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <IfcVersionHistoryCard project={project} />
@@ -862,15 +704,26 @@ function Workflow({
                   {decision && (
                     <>
                       {legacyOptionSelectionActive ? " · " : " "}
-                      <Badge tone={decision === "Approved" ? "success" : "warning"}>{decision}</Badge>
+                      <Badge variant={decision === "Approved" ? "success" : "warning"} className="text-sm font-medium">
+                        {decision}
+                      </Badge>
                     </>
                   )}
                 </span>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button onClick={() => { setDecision("Approved"); toast.success(`Option ${opt} approved`); }} className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"><Check className="h-5 w-5" />Approve</button>
-                <button onClick={() => { setDecision("Revision Requested"); toast.info("Revision requested from design team"); }} className="flex items-center gap-2 rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent"><RotateCcw className="h-5 w-5" />Request Revision</button>
-                <button onClick={() => { setDecision("Rejected"); toast.error("Change request rejected"); }} className="flex items-center gap-2 rounded-xl border border-destructive px-6 py-3 font-medium text-destructive hover:bg-destructive/10"><X className="h-5 w-5" />Reject</button>
+                <Button size="lg" onClick={() => { setDecision("Approved"); toast.success(`Option ${opt} approved`); }}>
+                  <Check />
+                  Approve
+                </Button>
+                <Button size="lg" variant="outline" onClick={() => { setDecision("Revision Requested"); toast.info("Revision requested from design team"); }}>
+                  <RotateCcw />
+                  Request Revision
+                </Button>
+                <Button size="lg" variant="outlineDestructive" onClick={() => { setDecision("Rejected"); toast.error("Change request rejected"); }}>
+                  <X />
+                  Reject
+                </Button>
               </div>
               <label className="mt-6 block text-base text-muted-foreground" htmlFor="rat">Decision Rationale</label>
               <textarea id="rat" value={rationale} onChange={(e) => setRationale(e.target.value)} rows={5} placeholder="Provide decision rationale..." className="mt-2 w-full rounded-xl border border-input bg-background/50 p-4 text-lg outline-none placeholder:text-muted-foreground focus:border-primary" />
@@ -878,29 +731,43 @@ function Workflow({
             <IfcVersionHistoryCard project={project} />
           </div>
           <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <button
+            <Button
+              variant="outline"
+              size="lg"
               onClick={() =>
                 toast.success("PDF report generated", {
                   description: `PAiVE_${project.code}_${ifcVersionLabel(project.activeIfcVersion)}_report.pdf`,
                 })
               }
-              className="flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium hover:border-primary"
             >
-              <Download className="h-5 w-5" />
+              <Download />
               Export PDF Report
-            </button>
-            <button onClick={() => {
-              const csv = "Criteria,Option A,Option B,Option C\n" + [["Cost", "cost"], ["Schedule", "sched"], ["Risk", "risk"], ["Carbon", "carbon"]].map(([l, k]) => [l, ...OPTIONS.map((o) => o[k as "cost"])].join(",")).join("\n");
-              const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "paive_comparison.csv"; a.click();
-              toast.success("CSV exported");
-            }} className="flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium hover:border-primary"><FileSpreadsheet className="h-5 w-5" />Export CSV</button>
-            <button onClick={() => decision ? toast.success("Decision saved", { description: `${decision} · Option ${opt}` }) : toast.warning("Choose Approve, Request Revision or Reject first")} className="flex items-center gap-2 rounded-xl bg-secondary px-6 py-3 font-semibold text-secondary-foreground hover:opacity-90"><Save className="h-5 w-5" />Save Decision</button>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => {
+                const csv = "Criteria,Option A,Option B,Option C\n" + [["Cost", "cost"], ["Schedule", "sched"], ["Risk", "risk"], ["Carbon", "carbon"]].map(([l, k]) => [l, ...OPTIONS.map((o) => o[k as "cost"])].join(",")).join("\n");
+                const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "paive_comparison.csv"; a.click();
+                toast.success("CSV exported");
+              }}
+            >
+              <FileSpreadsheet />
+              Export CSV
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => decision ? toast.success("Decision saved", { description: `${decision} · Option ${opt}` }) : toast.warning("Choose Approve, Request Revision or Reject first")}
+            >
+              <Save />
+              Save Decision
+            </Button>
           </div>
             </>
           )}
         </section>
       </main>
-      <WorkflowStepNav steps={workflowSteps} />
     </div>
   );
 }
@@ -1080,28 +947,51 @@ function Index() {
   return (
     <TooltipProvider delayDuration={200}>
     <div className="min-h-screen bg-background text-lg">
-      <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { fontSize: 12 } }} />
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
+      <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { fontSize: 12 } }} closeButton />
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 shadow-[inset_0_-1px_0_0] shadow-primary/20 backdrop-blur-xl">
         <div className="flex h-20 items-center justify-between px-6">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="shrink-0 rounded-lg bg-white px-3 py-1.5 shadow-sm ring-1 ring-border/40">
+            <div className="shrink-0 rounded-lg bg-card px-3 py-1.5 shadow-sm ring-1 ring-border">
               <img src="/paive-logo.png" alt="PAiVE" className="h-9 w-auto" width={120} height={36} />
             </div>
-            <button onClick={() => setOpen(!open)} aria-label="Toggle projects panel" className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setOpen(!open)}
+              aria-label="Toggle projects panel"
+              className="text-muted-foreground"
+            >
               {open ? <PanelLeftClose className="h-6 w-6" /> : <PanelLeftOpen className="h-6 w-6" />}
-            </button>
+            </Button>
             <div className="hidden border-l border-border pl-4 text-2xl leading-tight text-muted-foreground lg:block">
               Project AI Value Engineering
             </div>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
             {([["workflow", "Workflow", LayoutDashboard], ["config", "Configuration", Settings2]] as const).map(([k, l, I]) => (
-              <button key={k} onClick={() => setView(k)} className={cn("flex items-center gap-2 rounded-lg px-4 py-2", view === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}><I className="h-5 w-5" />{l}</button>
+              <Button
+                key={k}
+                type="button"
+                size="sm"
+                variant={view === k ? "default" : "ghost"}
+                onClick={() => setView(k)}
+                className={view === k ? undefined : "text-muted-foreground"}
+              >
+                <I className="h-5 w-5" />
+                {l}
+              </Button>
             ))}
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-lg">
-              <span className="h-2 w-2 rounded-full bg-success" /> {active.config.name}
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-success" aria-hidden />
+              <div className="min-w-0 leading-tight">
+                <div className="truncate font-semibold text-foreground">{active.config.name}</div>
+                <p className="truncate text-xs text-muted-foreground">
+                  {active.code} · {active.config.stage}
+                </p>
+              </div>
             </div>
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-lg font-semibold text-secondary-foreground">VV</div>
           </div>
@@ -1150,23 +1040,34 @@ function Index() {
                     )}
                   </button>
                   {open && projects.length > 1 && (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => void deleteProject(p.id)}
                       title={`Delete ${p.config.name}`}
                       aria-label={`Delete ${p.config.name}`}
-                      className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     >
                       <Trash2 className="h-5 w-5" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </li>
             ))}
             <li>
-              <button onClick={addProject} title="New Project" className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border p-3 text-muted-foreground hover:border-primary hover:text-primary">
-                <span className="flex h-11 w-11 items-center justify-center"><Plus className="h-6 w-6" /></span>{open && "New Project"}
-              </button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addProject}
+                title="New Project"
+                className="h-auto w-full justify-start gap-3 border-dashed p-3 text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                <span className="flex h-11 w-11 items-center justify-center">
+                  <Plus className="h-6 w-6" />
+                </span>
+                {open && "New Project"}
+              </Button>
             </li>
           </ul>
         </aside>

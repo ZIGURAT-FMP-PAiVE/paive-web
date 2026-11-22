@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { footprintAreaM2, measureBuildingAreaM2 } from "@/lib/ifcBuildingArea";
 
 export type BimElement = { id: string; type: string };
 
 export type PropGroup = { name: string; props: [string, string][] };
 export type IfcInfo = { expressId: string; ifcClass: string; guid: string; name: string; objectType: string; tag: string; groups: PropGroup[] };
+
+export type BimViewerHandle = {
+  fitView: () => void;
+  resetView: () => void;
+};
 
 type Props = {
   selectedId: string | null;
@@ -22,7 +27,19 @@ const val = (x: unknown): string => {
 };
 
 // Procedural demo model. Swap for That Open Engine / IFC.js loader later.
-export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded }: Props) {
+export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
+  { selectedId, onSelect, file, onInspect, onModelLoaded },
+  ref,
+) {
+  const viewApiRef = useRef<{ fitView: () => void; resetView: () => void } | null>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      fitView: () => viewApiRef.current?.fitView(),
+      resetView: () => viewApiRef.current?.resetView(),
+    }),
+    [],
+  );
   const inspectRef = useRef<(id: string | null) => void>(() => onInspectRef.current?.(null));
   const onInspectRef = useRef(onInspect);
   onInspectRef.current = onInspect;
@@ -86,6 +103,33 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.target.set(0, 3, 0);
+      const homeCamera = { position: camera.position.clone(), target: controls.target.clone() };
+      const saveHomeFromScene = () => {
+        homeCamera.position.copy(camera.position);
+        homeCamera.target.copy(controls.target);
+      };
+      const fitView = () => {
+        if (!meshes.length) return;
+        const box = new THREE.Box3();
+        for (const m of meshes) {
+          if (m.visible) box.expandByObject(m);
+        }
+        if (box.isEmpty()) return;
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3()).length();
+        controls.target.copy(center);
+        camera.near = Math.max(size / 1000, 0.1);
+        camera.far = Math.max(size * 20, 500);
+        camera.updateProjectionMatrix();
+        camera.position.copy(center).add(new THREE.Vector3(size * 0.6, size * 0.45, size * 0.6));
+        saveHomeFromScene();
+      };
+      const resetView = () => {
+        camera.position.copy(homeCamera.position);
+        controls.target.copy(homeCamera.target);
+        controls.update();
+      };
+      viewApiRef.current = { fitView, resetView };
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
       const dl = new THREE.DirectionalLight(0xffffff, 1.1);
       dl.position.set(20, 30, 10);
@@ -228,8 +272,11 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
           const center = box.getCenter(new THREE.Vector3());
           const size = box.getSize(new THREE.Vector3()).length();
           controls.target.copy(center);
-          camera.near = size / 1000; camera.far = size * 20; camera.updateProjectionMatrix();
+          camera.near = size / 1000;
+          camera.far = size * 20;
+          camera.updateProjectionMatrix();
           camera.position.copy(center).add(new THREE.Vector3(size * 0.6, size * 0.45, size * 0.6));
+          saveHomeFromScene();
           grid.position.y = box.min.y;
           const wallIds = api.GetLineIDsWithType(modelID, WebIFC.IFCWALL);
           const measured = measureBuildingAreaM2(api, modelID, WebIFC.IFCQUANTITYAREA);
@@ -276,8 +323,13 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
       const loop = () => { controls.update(); renderer.render(scene, camera); raf = requestAnimationFrame(loop); };
       loop();
       highlight(selectedId);
+      saveHomeFromScene();
       cleanup = () => {
-        cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose();
+        viewApiRef.current = null;
+        cancelAnimationFrame(raf);
+        ro.disconnect();
+        controls.dispose();
+        renderer.dispose();
         renderer.domElement.remove();
       };
     })();
@@ -311,4 +363,4 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
       {status && <div className="absolute inset-x-0 top-4 mx-auto w-fit rounded-lg bg-background/90 px-4 py-2 text-sm text-foreground">{status}</div>}
     </div>
   );
-}
+});

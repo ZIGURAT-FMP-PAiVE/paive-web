@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { STAGES, type ProjectConfig, type ProjectCostData, type Op } from "@/lib/projects";
 import { TruncatedText } from "@/components/TruncatedText";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const field = "w-full rounded-xl border border-input bg-background/60 px-4 py-3 text-lg outline-none placeholder:text-muted-foreground focus:border-primary";
 
@@ -137,45 +139,58 @@ export function ProjectConfigPanel({
                 {costData.sizeLabel} · {costData.rows.length} items · {costData.uploadedAt}
               </span>
             </div>
-            <span className={cn("inline-flex items-center rounded-full bg-success/15 px-3 py-1 text-base font-medium text-success")}>
-              <CheckCircle2 className="mr-1 h-4 w-4" />
+            <Badge variant="success" className="gap-1 text-sm font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" />
               Stored
-            </span>
+            </Badge>
           </div>
         )}
       </Block>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onDeleteProject}
-          className="flex items-center gap-2 rounded-xl border border-destructive/50 px-6 py-3 font-medium text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="h-5 w-5" />
+        <Button type="button" variant="outlineDestructive" size="lg" onClick={onDeleteProject}>
+          <Trash2 />
           Delete project
-        </button>
+        </Button>
         <div className="flex flex-wrap justify-end gap-3">
-        <button
-          type="button"
-          onClick={onResetDefaults}
-          className="flex items-center gap-2 rounded-xl border border-warning/40 px-6 py-3 font-medium text-warning hover:bg-warning/10"
-        >
-          <RotateCcw className="h-5 w-5" />
-          Reset to defaults
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            onChange(baseline);
-            onCostDataChange(baselineCostData);
-            toast.info("Reverted to last saved configuration");
-          }}
-          className="flex items-center gap-2 rounded-xl border border-border px-6 py-3 font-medium hover:bg-accent"
-        >
-          <RotateCcw className="h-5 w-5" />
-          Undo unsaved changes
-        </button>
-        <button onClick={() => { if (!config.name.trim()) { toast.error("Project name is required"); return; } onSave(); toast.success("Configuration updated", { description: config.name }); }} className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"><Save className="h-5 w-5" />Save Configuration</button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={onResetDefaults}
+            className="border-warning/40 text-warning hover:bg-warning/10"
+          >
+            <RotateCcw />
+            Reset to defaults
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={() => {
+              onChange(baseline);
+              onCostDataChange(baselineCostData);
+              toast.info("Reverted to last saved configuration");
+            }}
+          >
+            <RotateCcw />
+            Undo unsaved changes
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => {
+              if (!config.name.trim()) {
+                toast.error("Project name is required");
+                return;
+              }
+              onSave();
+              toast.success("Configuration updated", { description: config.name });
+            }}
+          >
+            <Save />
+            Save Configuration
+          </Button>
         </div>
       </div>
     </div>

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { DecideResult, PaiveOption, PaiveRun, PaiveWall } from "@/lib/paive/types";
+import { Button } from "@/components/ui/button";
 import { verdictBadgeClass, wallRowClass } from "@/lib/paive/fakeBackend";
 import {
   ColorLegendRow,
@@ -9,6 +11,15 @@ import {
 import { rankAccent, rankHeaderClass, rankOptionGlowClass, rankSelectedCellClass } from "@/lib/veSemantics";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  dataTableZebraClass,
+} from "@/components/ui/table";
 
 export function VeRunSteps({ run }: { run: PaiveRun }) {
   return (
@@ -86,6 +97,20 @@ export function D1BlockedPanel({ run }: { run: PaiveRun }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Muted placeholder when D1 has not run yet (IFC present, no verdict). */
+export function D1BaselinePlaceholder() {
+  return (
+    <div
+      className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-5 py-8"
+      role="status"
+    >
+      <p className="text-center text-sm leading-relaxed text-muted-foreground">
+        D1 verdict appears after the model is analyzed against project targets.
+      </p>
     </div>
   );
 }
@@ -168,41 +193,41 @@ export function PaiveWallsTable({
   onSelect: (guid: string) => void;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left text-base">
-        <thead className="text-muted-foreground">
-          <tr className="border-b border-border">
-            <th className="pb-3 font-medium">Wall</th>
-            <th className="pb-3 font-medium">Type</th>
-            <th className="pb-3 font-medium">Change</th>
-            <th className="pb-3 font-medium">U / Fire / Rw</th>
-            <th className="pb-3 text-right font-medium">Cost</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div>
+      <Table className="min-w-[720px] text-base">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Wall</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Change</TableHead>
+            <TableHead>U / Fire / Rw</TableHead>
+            <TableHead className="text-right">Cost</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className={dataTableZebraClass}>
           {walls.map((w) => (
-            <tr
+            <TableRow
               key={w.guid}
               onClick={() => onSelect(w.guid)}
               className={cn(
-                "cursor-pointer border-b border-border transition-colors hover:bg-accent",
+                "cursor-pointer",
                 wallRowClass(w.colour),
                 selectedGuid === w.guid && "ring-1 ring-inset ring-primary/30 bg-accent/25",
               )}
             >
-              <td className="py-3 pr-2 font-medium">{w.name}</td>
-              <td className="py-3 text-muted-foreground">{w.type ?? "—"}</td>
-              <td className="py-3 capitalize">{w.change}</td>
-              <td className="py-3 text-sm text-muted-foreground tabular-nums">
+              <TableCell className="pr-2 font-medium">{w.name}</TableCell>
+              <TableCell className="text-muted-foreground">{w.type ?? "—"}</TableCell>
+              <TableCell className="capitalize">{w.change}</TableCell>
+              <TableCell className="text-sm text-muted-foreground tabular-nums">
                 {w.u_value ?? "—"} / {w.fire_min ?? "—"} / {w.rw_db ?? "—"}
-              </td>
-              <td className="py-3 text-right font-semibold tabular-nums">
+              </TableCell>
+              <TableCell className="text-right font-semibold tabular-nums">
                 {w.cost_eur != null ? `€${Math.round(w.cost_eur).toLocaleString("en-US")}` : "—"}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <ColorLegendRow items={WALL_HEALTH_LEGEND} className="mt-4" />
       {walls.some((w) => w.ve2.status === "unmapped") && (
         <p className="mt-3 text-sm text-muted-foreground">
@@ -237,13 +262,37 @@ function optionPerformanceLine(o: PaiveOption) {
   return `U ${o.performance.u_value} · ${o.performance.fire_min} min fire · Rw ${o.performance.rw_db} dB`;
 }
 
+const PROSE_TRUNCATE = 140;
+
+function ExpandableProseCell({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const trimmed = text.trim();
+  if (!trimmed || trimmed === "—") return <span className="text-muted-foreground">—</span>;
+  const long = trimmed.length > PROSE_TRUNCATE;
+  if (!long) {
+    return <span className="block max-w-prose leading-relaxed">{trimmed}</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      className="block max-w-prose text-left leading-relaxed transition-colors hover:text-foreground"
+      aria-expanded={open}
+    >
+      <span className={cn(!open && "line-clamp-3")}>{trimmed}</span>
+      <span className="mt-1 block text-xs font-medium text-primary">{open ? "Show less" : "Show more"}</span>
+    </button>
+  );
+}
+
 const COMPARISON_ROWS: {
   label: string;
   getValue: (o: PaiveOption) => string;
   wrap?: boolean;
+  prose?: boolean;
   valueTone?: (value: string, o: PaiveOption) => string | undefined;
 }[] = [
-  { label: "Description", getValue: (o) => o.description, wrap: true },
+  { label: "Description", getValue: (o) => o.description, wrap: true, prose: true },
   { label: "ΔV · ΔR", getValue: optionValueCostLine },
   { label: "U · fire · Rw", getValue: optionPerformanceLine },
   {
@@ -251,7 +300,7 @@ const COMPARISON_ROWS: {
     getValue: (o) => (o.meets_all_required_targets ? "Meets required targets" : "Misses a required target"),
     valueTone: (_v, o) => (o.meets_all_required_targets ? "text-success" : "text-destructive"),
   },
-  { label: "Why", getValue: (o) => o.why, wrap: true },
+  { label: "Why", getValue: (o) => o.why, wrap: true, prose: true },
 ];
 
 export function D2ComparisonMatrix({
@@ -275,27 +324,27 @@ export function D2ComparisonMatrix({
   }));
 
   return (
-    <table className="w-full text-left">
-      <thead>
-        <tr className="border-b border-border text-muted-foreground">
-          <th className="pb-3 font-medium">Criteria</th>
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead>Criteria</TableHead>
           {columns.map((col) => {
             const selected = !placeholder && selectedId === col.id;
             return (
-              <th
+              <TableHead
                 key={col.id}
-                className={cn("pb-3 font-semibold", rankHeaderClass(col.rank, selected && !placeholder))}
+                className={cn("normal-case tracking-normal", rankHeaderClass(col.rank, selected && !placeholder))}
               >
                 {col.label}
-              </th>
+              </TableHead>
             );
           })}
-        </tr>
-      </thead>
-      <tbody>
+        </TableRow>
+      </TableHeader>
+      <TableBody className={dataTableZebraClass}>
         {rows.map((row) => (
-          <tr key={row.label} className="border-b border-border last:border-0">
-            <td className="py-4 text-muted-foreground">{row.label}</td>
+          <TableRow key={row.label}>
+            <TableCell className="text-muted-foreground">{row.label}</TableCell>
             {columns.map((col, colIdx) => {
               const option = "option" in col ? col.option : undefined;
               const value = row.values[colIdx] ?? "—";
@@ -303,25 +352,26 @@ export function D2ComparisonMatrix({
               const valueTone =
                 !placeholder && option && row.valueTone ? row.valueTone(value, option) : undefined;
               return (
-                <td
+                <TableCell
                   key={col.id}
                   className={cn(
-                    "py-4 font-medium",
-                    row.wrap && "max-w-xs align-top leading-relaxed",
+                    "font-medium align-top",
+                    row.wrap && !row.prose && "max-w-xs leading-relaxed",
+                    row.prose && "max-w-[min(100%,22rem)]",
                     !row.wrap && "tabular-nums",
                     selected && !placeholder && rankSelectedCellClass(col.rank),
                     placeholder && "text-muted-foreground",
                     valueTone,
                   )}
                 >
-                  {value}
-                </td>
+                  {row.prose && !placeholder ? <ExpandableProseCell text={value} /> : value}
+                </TableCell>
               );
             })}
-          </tr>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 
@@ -363,7 +413,7 @@ export function D2OptionsPanel({
             type="button"
             onClick={() => onSelect(o.assembly_id)}
             className={cn(
-              "glass border-2 p-6 text-left transition-all duration-200 hover:-translate-y-0.5",
+              "glass border-2 p-6 text-left motion-safe:transition-all motion-safe:duration-200 motion-safe:hover:-translate-y-0.5",
               rank.border,
               rankOptionGlowClass(o.rank, selectedId === o.assembly_id),
             )}
@@ -412,30 +462,127 @@ export function VeReportBlock({ run }: { run: PaiveRun }) {
 
 export function PaiveLogTable({ entries }: { entries: ReturnType<typeof import("@/lib/paive/fakeBackend").getLog> }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-base">
-        <thead className="text-muted-foreground">
-          <tr className="border-b border-border">
-            <th className="pb-2 font-medium">When</th>
-            <th className="pb-2 font-medium">Event</th>
-            <th className="pb-2 font-medium">Run</th>
-            <th className="pb-2 font-medium">Detail</th>
-            <th className="pb-2 font-medium">User</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div>
+      <Table className="text-base">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>When</TableHead>
+            <TableHead>Event</TableHead>
+            <TableHead>Run</TableHead>
+            <TableHead>Detail</TableHead>
+            <TableHead>User</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody className={dataTableZebraClass}>
           {entries.map((e) => (
-            <tr key={e.log_id} className="border-b border-border">
-              <td className="py-3 text-muted-foreground">{new Date(e.at).toLocaleString()}</td>
-              <td className="py-3">{e.event}</td>
-              <td className="py-3 font-mono text-sm">{e.run_id ?? "—"}</td>
-              <td className="py-3">{e.verdict ?? e.decision ?? e.version ?? "—"} {e.reason ? `· ${e.reason}` : ""}</td>
-              <td className="py-3">{e.user ?? "—"}</td>
-            </tr>
+            <TableRow key={e.log_id}>
+              <TableCell className="text-muted-foreground">{new Date(e.at).toLocaleString()}</TableCell>
+              <TableCell>{e.event}</TableCell>
+              <TableCell className="font-mono text-sm">{e.run_id ?? "—"}</TableCell>
+              <TableCell>
+                {e.verdict ?? e.decision ?? e.version ?? "—"} {e.reason ? `· ${e.reason}` : ""}
+              </TableCell>
+              <TableCell>{e.user ?? "—"}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <ColorLegendRow items={DECISION_LOG_LEGEND} className="mt-4" />
+    </div>
+  );
+}
+
+const ve5FieldClass =
+  "w-full rounded-xl border border-input bg-background/50 px-4 py-3 text-base outline-none placeholder:text-muted-foreground focus:border-primary";
+
+export function Ve5HumanGatePanel({
+  reviewer,
+  onReviewerChange,
+  decisionReason,
+  onDecisionReasonChange,
+  hasOptions,
+  onAccept,
+  onReject,
+  result,
+}: {
+  reviewer: string;
+  onReviewerChange: (value: string) => void;
+  decisionReason: string;
+  onDecisionReasonChange: (value: string) => void;
+  hasOptions: boolean;
+  onAccept: () => void;
+  onReject: () => void;
+  result: DecideResult | null;
+}) {
+  const inactive = !hasOptions;
+  const canSubmit = hasOptions && decisionReason.trim().length > 0;
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border",
+        inactive ? "border-dashed border-border/60 bg-muted/20" : "border-transparent",
+      )}
+    >
+      <div className={cn("space-y-4", inactive && "opacity-80")}>
+        {inactive ? (
+          <p className="text-sm leading-relaxed text-muted-foreground" role="status">
+            No ranked options for this run — the gate stays inactive until VE generates alternatives.
+          </p>
+        ) : !canSubmit ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            Enter a reason below to enable accept or reject.
+          </p>
+        ) : null}
+        <label className={cn("block text-base", inactive ? "text-muted-foreground/80" : "text-muted-foreground")} htmlFor="paive-reviewer">
+          Reviewer
+        </label>
+        <input
+          id="paive-reviewer"
+          value={reviewer}
+          onChange={(e) => onReviewerChange(e.target.value)}
+          disabled={inactive}
+          className={cn(ve5FieldClass, "max-w-md", inactive && "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground")}
+        />
+        <label className={cn("mt-2 block text-base", inactive ? "text-muted-foreground/80" : "text-muted-foreground")} htmlFor="paive-reason">
+          Reason
+        </label>
+        <textarea
+          id="paive-reason"
+          value={decisionReason}
+          onChange={(e) => onDecisionReasonChange(e.target.value)}
+          rows={4}
+          disabled={inactive}
+          placeholder="Why accept or reject this option?"
+          className={cn(ve5FieldClass, inactive && "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground")}
+        />
+        <div className="flex flex-wrap gap-3">
+          <Button
+            type="button"
+            size="lg"
+            variant={inactive ? "ghost" : "default"}
+            disabled={!canSubmit}
+            onClick={onAccept}
+            className={inactive ? "text-muted-foreground" : undefined}
+          >
+            <Check />
+            Accept
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            variant={inactive ? "ghost" : "outlineDestructive"}
+            disabled={!canSubmit}
+            onClick={onReject}
+            className={inactive ? "text-muted-foreground" : undefined}
+          >
+            <X />
+            Reject
+          </Button>
+        </div>
+        <p className="text-base text-muted-foreground">No changes are made to the BIM model.</p>
+        <DecisionNotice result={result} />
+      </div>
     </div>
   );
 }
