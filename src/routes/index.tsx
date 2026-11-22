@@ -40,7 +40,6 @@ import {
   PaiveLogTable,
   PaiveWallsTable,
   VeReportBlock,
-  WallFunctionChips,
 } from "@/components/paive/PaiveRunUI";
 import { decide, getLog, getRun, paiveRun } from "@/lib/paive/fakeBackend";
 import type { DecideResult, PaiveRun } from "@/lib/paive/types";
@@ -317,7 +316,7 @@ function Workflow({
         {/* Section 2 */}
         <section>
           <h2 className="mb-6 text-[18px] font-semibold">
-            {useFixtureUi && fixtureRun?.d1 ? "2. Result (D1)" : "2. Change Analysis"}
+            2. Change Analysis
           </h2>
           {useFixtureUi && fixtureRun?.status === "blocked" ? (
             <Card>
@@ -332,7 +331,7 @@ function Workflow({
                 {fixtureRun.walls && fixtureRun.walls.length > 0 && (
                   <Card>
                     <SectionTitle sub="Red = failed target · amber = changed · green = OK · grey = unmapped.">
-                      Walls in scope
+                      Affected Elements
                     </SectionTitle>
                     <PaiveWallsTable
                       walls={fixtureRun.walls}
@@ -342,10 +341,6 @@ function Workflow({
                         setSel(g);
                       }}
                     />
-                    <div className="mt-4 border-t border-border pt-4">
-                      <h4 className="mb-2 font-semibold">Function mapping (VE2)</h4>
-                      <WallFunctionChips wall={selectedFixtureWall} />
-                    </div>
                   </Card>
                 )}
               </div>
