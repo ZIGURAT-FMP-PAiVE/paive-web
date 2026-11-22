@@ -6,7 +6,6 @@ import run002 from "./fixtures/run_002_v02_value_down.json";
 import run003 from "./fixtures/run_003_blocked.json";
 import decisionAccept from "./fixtures/decision_accept.json";
 import decisionReject from "./fixtures/decision_reject.json";
-import initialLog from "./fixtures/log.json";
 
 const RUNS: Record<string, PaiveRun> = {
   run_001: run001 as PaiveRun,
@@ -14,7 +13,7 @@ const RUNS: Record<string, PaiveRun> = {
   run_003: run003 as PaiveRun,
 };
 
-let logEntries: PaiveLogEntry[] = [...(initialLog as PaiveLogEntry[])];
+let logEntries: PaiveLogEntry[] = [];
 
 /** Upload + run (fixture router). Real API: same signature. */
 export function paiveRun(ifcPath: string, _projectId = "pilot-sample", _compareTo = "last-accepted", _note = ""): string {

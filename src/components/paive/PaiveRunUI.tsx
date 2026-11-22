@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { DecideResult, PaiveOption, PaiveRun, PaiveWall } from "@/lib/paive/types";
+import type { DecideResult, PaiveLogEntry, PaiveOption, PaiveRun, PaiveWall } from "@/lib/paive/types";
 import { Button } from "@/components/ui/button";
 import { verdictBadgeClass, wallRowClass } from "@/lib/paive/fakeBackend";
 import {
@@ -447,22 +447,30 @@ export function D2OptionsPanel({
   );
 }
 
-export function VeReportBlock({ run }: { run: PaiveRun }) {
-  if (!run.ve6?.text) return null;
+export function VeReportDraft({ run }: { run: PaiveRun | null }) {
+  const text = run?.ve6?.text;
   return (
     <div className="panel-secondary p-5">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="text-lg font-semibold">Report draft (VE6)</h4>
-        {run.ve6.number_check.passed && <span className="text-base text-success">Numbers checked ✓</span>}
-      </div>
-      <p className="text-base leading-relaxed text-muted-foreground">{run.ve6.text}</p>
+      <h4 className="mb-2 text-lg font-semibold">Report draft</h4>
+      {text ? (
+        <p className="text-base leading-relaxed text-muted-foreground">{text}</p>
+      ) : (
+        <p className="text-base leading-relaxed text-muted-foreground" role="status">
+          Upload an IFC model and complete value engineering to generate a report draft.
+        </p>
+      )}
     </div>
   );
 }
 
-export function PaiveLogTable({ entries }: { entries: ReturnType<typeof import("@/lib/paive/fakeBackend").getLog> }) {
+export function PaiveLogTable({ entries }: { entries: PaiveLogEntry[] }) {
   return (
     <div>
+      {entries.length === 0 ? (
+        <p className="py-6 text-center text-base leading-relaxed text-muted-foreground" role="status">
+          No decisions recorded for this project yet.
+        </p>
+      ) : (
       <Table className="text-base">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -487,7 +495,8 @@ export function PaiveLogTable({ entries }: { entries: ReturnType<typeof import("
           ))}
         </TableBody>
       </Table>
-      <ColorLegendRow items={DECISION_LOG_LEGEND} className="mt-4" />
+      )}
+      {entries.length > 0 ? <ColorLegendRow items={DECISION_LOG_LEGEND} className="mt-4" /> : null}
     </div>
   );
 }
@@ -501,6 +510,7 @@ export function Ve5HumanGatePanel({
   decisionReason,
   onDecisionReasonChange,
   hasOptions,
+  awaitingModel = false,
   onAccept,
   onReject,
   result,
@@ -510,12 +520,15 @@ export function Ve5HumanGatePanel({
   decisionReason: string;
   onDecisionReasonChange: (value: string) => void;
   hasOptions: boolean;
+  /** No IFC uploaded yet — gate visible but disabled. */
+  awaitingModel?: boolean;
   onAccept: () => void;
   onReject: () => void;
   result: DecideResult | null;
 }) {
-  const inactive = !hasOptions;
-  const canSubmit = hasOptions && decisionReason.trim().length > 0;
+  const inactive = awaitingModel || !hasOptions;
+  const canSubmit =
+    hasOptions && !awaitingModel && reviewer.trim().length > 0 && decisionReason.trim().length > 0;
 
   return (
     <div
@@ -527,11 +540,13 @@ export function Ve5HumanGatePanel({
       <div className={cn("space-y-4", inactive && "opacity-80")}>
         {inactive ? (
           <p className="text-base leading-relaxed text-muted-foreground" role="status">
-            No ranked options for this run — the gate stays inactive until VE generates alternatives.
+            {awaitingModel
+              ? "Upload an IFC model to enable the human gate."
+              : "No ranked options for this run — the gate stays inactive until VE generates alternatives."}
           </p>
         ) : !canSubmit ? (
           <p className="text-base text-muted-foreground" role="status">
-            Enter a reason below to enable accept or reject.
+            Enter reviewer and reason to enable accept or reject.
           </p>
         ) : null}
         <label className={cn("block text-base", inactive ? "text-muted-foreground/80" : "text-muted-foreground")} htmlFor="paive-reviewer">
@@ -542,6 +557,7 @@ export function Ve5HumanGatePanel({
           value={reviewer}
           onChange={(e) => onReviewerChange(e.target.value)}
           disabled={inactive}
+          placeholder={inactive ? undefined : "Who is signing off?"}
           className={cn(ve5FieldClass, "max-w-md", inactive && "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground")}
         />
         <label className={cn("mt-2 block text-base", inactive ? "text-muted-foreground/80" : "text-muted-foreground")} htmlFor="paive-reason">

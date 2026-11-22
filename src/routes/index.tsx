@@ -63,10 +63,10 @@ import {
   PaiveLogTable,
   Ve5HumanGatePanel,
   PaiveWallsTable,
-  VeReportBlock,
+  VeReportDraft,
 } from "@/components/paive/PaiveRunUI";
-import { decide, getLog, getRun, paiveRun } from "@/lib/paive/fakeBackend";
-import type { DecideResult, PaiveRun } from "@/lib/paive/types";
+import { decide, getRun, paiveRun } from "@/lib/paive/fakeBackend";
+import type { DecideResult, PaiveLogEntry, PaiveRun } from "@/lib/paive/types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -184,12 +184,16 @@ function Workflow({
   onStoreCost,
   onClearIfcVersions,
   onIfcModelStats,
+  decisionLog,
+  onDecisionLogged,
 }: {
   project: Project;
   onStoreIfc: (file: File) => void;
   onStoreCost: (file: File, rows: CostRow[]) => void;
   onClearIfcVersions: () => void;
   onIfcModelStats: (version: number, stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
+  decisionLog: PaiveLogEntry[];
+  onDecisionLogged: (entry: PaiveLogEntry) => void;
 }) {
   const currentIfc = activeIfcVersion(project);
   const ifcFile = currentIfc?.file ?? null;
@@ -211,10 +215,9 @@ function Workflow({
   const [fixtureRun, setFixtureRun] = useState<PaiveRun | null>(null);
   const [wallGuid, setWallGuid] = useState<string | null>(null);
   const [selectedAssembly, setSelectedAssembly] = useState<string | null>(null);
-  const [reviewer, setReviewer] = useState("Valentina");
+  const [reviewer, setReviewer] = useState("");
   const [decisionReason, setDecisionReason] = useState("");
   const [decideResult, setDecideResult] = useState<DecideResult | null>(null);
-  const [paiveLog, setPaiveLog] = useState(() => getLog());
   const [ifcElementCount, setIfcElementCount] = useState<number | null>(currentIfc?.elementCount ?? null);
   const ifcInput = useRef<HTMLInputElement>(null);
   const costInput = useRef<HTMLInputElement>(null);
@@ -230,6 +233,8 @@ function Workflow({
       setWallGuid(null);
       setSelectedAssembly(null);
       setDecideResult(null);
+      setReviewer("");
+      setDecisionReason("");
       return;
     }
     const runId = paiveRun(ifcFile.name);
@@ -257,7 +262,15 @@ function Workflow({
       toast.error(res.error.message);
       return;
     }
-    setPaiveLog(getLog());
+    onDecisionLogged({
+      log_id: res.result.log_id,
+      at: new Date().toISOString(),
+      event: "decision",
+      run_id: fixtureRun.run_id,
+      decision: kind,
+      reason: decisionReason.trim(),
+      user: reviewer.trim(),
+    });
     toast.success(kind === "accept" ? "Option accepted" : "Option rejected");
     if (kind === "reject" && res.result.next_option) {
       setSelectedAssembly(res.result.next_option.assembly_id);
@@ -536,9 +549,7 @@ function Workflow({
                 variant="secondary"
                 className={cn("mt-6", !fixtureRun.d2?.options?.length && "opacity-95")}
               >
-                <SectionTitle sub="Reason is required. Calls decide() on the fixture back end.">
-                  Human gate (VE5)
-                </SectionTitle>
+                <SectionTitle sub="Reason is required.">Human gate</SectionTitle>
                 <Ve5HumanGatePanel
                   reviewer={reviewer}
                   onReviewerChange={setReviewer}
@@ -560,6 +571,20 @@ function Workflow({
               <Card variant="secondary" className="mt-6">
                 <SectionTitle>Comparison Matrix</SectionTitle>
                 <D2ComparisonMatrix placeholder />
+              </Card>
+              <Card variant="secondary" className="mt-6 opacity-95">
+                <SectionTitle sub="Reason is required.">Human gate</SectionTitle>
+                <Ve5HumanGatePanel
+                  reviewer={reviewer}
+                  onReviewerChange={setReviewer}
+                  decisionReason={decisionReason}
+                  onDecisionReasonChange={setDecisionReason}
+                  hasOptions={false}
+                  awaitingModel
+                  onAccept={() => submitPaiveDecision("accept")}
+                  onReject={() => submitPaiveDecision("reject")}
+                  result={decideResult}
+                />
               </Card>
             </>
           ) : (
@@ -666,30 +691,28 @@ function Workflow({
 
         {/* Section 4 */}
         <section className={workflowSectionClass}>
-          {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
-            <>
-              <SectionTitle variant="workflow">4. Decision & Approval</SectionTitle>
-              <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-                <div className="space-y-6">
-                  <VeReportBlock run={fixtureRun} />
-                  <Card variant="secondary">
-                    <SectionTitle>Decision log</SectionTitle>
-                    <PaiveLogTable entries={paiveLog} />
-                  </Card>
-                  <div className="flex justify-end">
-                    <Button type="button" variant="outline" size="lg" disabled title="PDF export will use the same JSON later">
-                      <Download />
-                      Export PDF (coming soon)
-                    </Button>
-                  </div>
-                </div>
-                <IfcVersionHistoryCard project={project} />
-              </div>
-            </>
-          ) : (
-            <>
           <SectionTitle variant="workflow">4. Decision & Approval</SectionTitle>
           <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+            <div className="space-y-6">
+              <VeReportDraft run={fixtureRun} />
+              <Card variant="secondary">
+                <SectionTitle>Decision log</SectionTitle>
+                <PaiveLogTable entries={decisionLog} />
+              </Card>
+              {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" size="lg" disabled title="PDF export will use the same JSON later">
+                    <Download />
+                    Export PDF (coming soon)
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            <IfcVersionHistoryCard project={project} />
+          </div>
+          {legacyOptionSelectionActive ? (
+            <>
+          <div className="mt-6 grid gap-6 lg:grid-cols-[3fr_2fr]">
             <Card>
               <div className="mb-5 flex items-center justify-between">
                 <h3 className="text-xl font-semibold tracking-tight">Decision</h3>
@@ -728,7 +751,7 @@ function Workflow({
               <label className="mt-6 block text-base text-muted-foreground" htmlFor="rat">Decision Rationale</label>
               <textarea id="rat" value={rationale} onChange={(e) => setRationale(e.target.value)} rows={5} placeholder="Provide decision rationale..." className="mt-2 w-full rounded-xl border border-input bg-background/50 p-4 text-lg outline-none placeholder:text-muted-foreground focus:border-primary" />
             </Card>
-            <IfcVersionHistoryCard project={project} />
+            <div className="hidden lg:block" aria-hidden />
           </div>
           <div className="mt-6 flex flex-wrap justify-end gap-3">
             <Button
@@ -765,7 +788,7 @@ function Workflow({
             </Button>
           </div>
             </>
-          )}
+          ) : null}
         </section>
       </main>
     </div>
@@ -825,6 +848,7 @@ function Index() {
   const [view, setView] = useState<"workflow" | "config">("workflow");
   const [open, setOpen] = useState(true);
   const [hydrated, setHydrated] = useState(false);
+  const [decisionLogsByProject, setDecisionLogsByProject] = useState<Record<string, PaiveLogEntry[]>>({});
   const active = (projects.find((p) => p.id === activeId) ?? projects[0])!;
   const activeBaseline = projectBaselines[active.id] ?? projectBaseline(active);
 
@@ -1086,6 +1110,13 @@ function Index() {
                 onClearIfcVersions={() => void clearActiveIfcVersions()}
                 onIfcModelStats={(version, stats) =>
                   setProjects((ps) => ps.map((p) => (p.id === active.id ? setIfcVersionModelStats(p, version, stats) : p)))
+                }
+                decisionLog={decisionLogsByProject[active.id] ?? []}
+                onDecisionLogged={(entry) =>
+                  setDecisionLogsByProject((logs) => ({
+                    ...logs,
+                    [active.id]: [entry, ...(logs[active.id] ?? [])],
+                  }))
                 }
               />
             </div>
