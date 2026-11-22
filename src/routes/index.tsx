@@ -5,6 +5,7 @@ import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Ch
 import { BimViewer, type IfcInfo } from "@/components/BimViewer";
 import type { CostRow } from "@/lib/costFile";
 import { cn } from "@/lib/utils";
+import { ifcVersionDotClass, rankAccent, rankHeaderClass, rankSelectedCellClass } from "@/lib/veSemantics";
 import {
   activeIfcVersion,
   appendIfcVersion,
@@ -70,9 +71,9 @@ const ELEMENTS: El[] = [
 ];
 
 const OPTIONS = [
-  { key: "A", name: "Lowest Cost", cost: "+ €27,000", sched: "+5 Days", risk: "Low", carbon: "+4.2 tCO₂e", tone: "success" },
-  { key: "B", name: "Balanced Option", cost: "+ €35,000", sched: "+2 Days", risk: "Low", carbon: "+3.1 tCO₂e", tone: "primary", rec: true },
-  { key: "C", name: "Schedule Optimized", cost: "+ €61,000", sched: "0 Days", risk: "Medium", carbon: "+5.8 tCO₂e", tone: "warning" },
+  { key: "A", name: "Lowest Cost", cost: "+ €27,000", sched: "+5 Days", risk: "Low", carbon: "+4.2 tCO₂e", tone: "success", rank: 1 },
+  { key: "B", name: "Balanced Option", cost: "+ €35,000", sched: "+2 Days", risk: "Low", carbon: "+3.1 tCO₂e", tone: "primary", rec: true, rank: 2 },
+  { key: "C", name: "Schedule Optimized", cost: "+ €61,000", sched: "0 Days", risk: "Medium", carbon: "+5.8 tCO₂e", tone: "warning", rank: 3 },
 ] as const;
 
 const toneBorder = { success: "border-success", primary: "border-primary", warning: "border-warning" };
@@ -81,14 +82,36 @@ const toneText = { success: "text-success", primary: "text-primary", warning: "t
 function Card({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("glass p-8", className)}>{children}</div>;
 }
-function SectionTitle({ children, sub }: { children: ReactNode; sub?: string }) {
+const workflowSectionClass = "border-t border-border pt-10";
+
+function SectionTitle({
+  children,
+  sub,
+  variant = "card",
+}: {
+  children: ReactNode;
+  sub?: ReactNode;
+  variant?: "workflow" | "card";
+}) {
+  if (variant === "workflow") {
+    return (
+      <div className="mb-6 flex gap-3">
+        <div className="w-1 shrink-0 self-stretch rounded-full bg-primary" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-2xl font-semibold tracking-tight">{children}</h2>
+          {sub ? <p className="mt-1 text-sm text-muted-foreground">{sub}</p> : null}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="mb-6">
-      <h2 className="text-[18px] font-semibold">{children}</h2>
-      {sub && <p className="mt-1 text-lg text-muted-foreground">{sub}</p>}
+      <h2 className="text-lg font-semibold">{children}</h2>
+      {sub ? <p className="mt-1 text-sm text-muted-foreground">{sub}</p> : null}
     </div>
   );
 }
+
 function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "primary" | "success" | "warning" | "muted" }) {
   const map = {
     primary: "bg-primary/15 text-primary",
@@ -103,7 +126,7 @@ function IfcVersionHistoryCard({ project }: { project: Project }) {
   const uploaded = uploadedIfcVersions(project);
   return (
     <Card>
-      <h3 className="mb-6 text-[18px] font-semibold">Version History</h3>
+      <h3 className="mb-6 text-lg font-semibold">Version History</h3>
       {uploaded.length === 0 ? (
         <p className="text-base text-muted-foreground">No IFC versions uploaded yet.</p>
       ) : (
@@ -115,7 +138,7 @@ function IfcVersionHistoryCard({ project }: { project: Project }) {
                 <span
                   className={cn(
                     "absolute -left-[42px] top-1 h-5 w-5 rounded-full border-4 border-background",
-                    cur ? "bg-primary" : "bg-muted-foreground",
+                    ifcVersionDotClass(cur),
                   )}
                 />
                 <div className="font-semibold">
@@ -149,7 +172,7 @@ function ElementPropertiesContent({ ifcFile, info }: { ifcFile: File | null; inf
 
   return (
     <>
-      <h3 className="mb-4 text-[18px] font-semibold">Element Properties</h3>
+      <h3 className="mb-4 text-lg font-semibold">Element Properties</h3>
       {!ifcFile ? null : !info ? (
         <p className="text-base text-muted-foreground">Click an element in the model to see its properties.</p>
       ) : (
@@ -208,7 +231,7 @@ function BimModelViewerPanel({
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <Box className="h-6 w-6 text-primary" />
-          <h3 className="text-[18px] font-semibold">BIM Model Viewer</h3>
+          <h3 className="text-lg font-semibold">BIM Model Viewer</h3>
         </div>
         <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
       </div>
@@ -353,20 +376,24 @@ function Workflow({
 
   return (
     <div>
-      <main className="space-y-14 pb-20">
-        <div>
-          <h1 className="text-[27px] font-bold tracking-tight">{project.config.name} - VE Workflow</h1>
-          <p className="mt-2 text-lg text-muted-foreground">Upload, analyse, compare and approve design changes in one place.</p>
+      <main className="space-y-0 pb-20">
+        <div className="mb-10">
+          <h1 className="text-3xl font-bold tracking-tight">{project.config.name} - VE Workflow</h1>
+          <p className="mt-2 text-base text-muted-foreground">Upload, analyse, compare and approve design changes in one place.</p>
         </div>
 
         {/* Section 1 */}
-        <section className="grid gap-6 lg:grid-cols-3">
+        <section>
+          <SectionTitle
+            variant="workflow"
+            sub="Each upload is kept as the next version (v01, v02, …). Only files you upload are stored."
+          >
+            1. Upload IFC Model
+          </SectionTitle>
+          <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-              <SectionTitle sub="Each upload is kept as the next version (v01, v02, …). Only files you upload are stored.">
-                1. Upload IFC Model
-              </SectionTitle>
-              {uploadedIfcVersions(project).length > 0 && (
+            {uploadedIfcVersions(project).length > 0 && (
+              <div className="mb-6 flex flex-wrap justify-end gap-4">
                 <button
                   type="button"
                   onClick={onClearIfcVersions}
@@ -375,8 +402,8 @@ function Workflow({
                   <RotateCcw className="h-4 w-4" />
                   Clear IFC versions
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             <div
               onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
               onDragLeave={() => setDrag(false)}
@@ -384,7 +411,7 @@ function Workflow({
               className={cn("flex flex-col items-center rounded-2xl border-2 border-dashed p-10 text-center transition-colors", drag ? "border-primary bg-primary/10" : "border-border bg-background/40")}
             >
               <Upload className="h-12 w-12 text-primary" />
-              <p className="mt-4 text-xl font-medium">Drag & drop your IFC file here</p>
+              <p className="mt-4 text-lg font-medium">Drag & drop your IFC file here</p>
               <p className="text-base text-muted-foreground">IFC 2x3 / IFC4 · up to 500 MB</p>
               <button onClick={() => ifcInput.current?.click()} className="mt-5 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90">Select IFC File</button>
               <input ref={ifcInput} type="file" accept=".ifc" hidden onChange={(e) => { handleIfc(e.target.files?.[0]); e.target.value = ""; }} />
@@ -394,7 +421,15 @@ function Workflow({
                 {uploadedIfcVersions(project).map((v) => {
                   const current = v.version === project.activeIfcVersion;
                   return (
-                    <li key={v.version} className={cn("flex items-center justify-between rounded-xl border p-4", current ? "border-primary bg-primary/10" : "border-border bg-background/40")}>
+                    <li
+                      key={v.version}
+                      className={cn(
+                        "flex items-center justify-between rounded-xl border border-border p-4",
+                        current
+                          ? "border-l-4 border-l-primary bg-primary/[0.04]"
+                          : "border-l-4 border-l-success/50 bg-success/[0.03]",
+                      )}
+                    >
                       <div className="flex min-w-0 items-center gap-3">
                         <FileBox className="h-6 w-6 shrink-0 text-primary" />
                         <span className="font-semibold">{ifcVersionLabel(v.version)}</span>
@@ -451,16 +486,17 @@ function Workflow({
               ].map(([k, v]) => (
                 <div key={k as string} className="flex items-center justify-between gap-4 border-b border-border pb-4 last:border-0">
                   <dt className="shrink-0 text-muted-foreground">{k}</dt>
-                  <dd className="min-w-0 text-right font-semibold">{v}</dd>
+                  <dd className="min-w-0 text-right font-semibold tabular-nums">{v}</dd>
                 </div>
               ))}
             </dl>
           </Card>
+          </div>
         </section>
 
         {/* Section 2 */}
-        <section>
-          <h2 className="mb-6 text-[18px] font-semibold">2. Change Analysis</h2>
+        <section className={workflowSectionClass}>
+          <SectionTitle variant="workflow">2. Change Analysis</SectionTitle>
           <div className="space-y-6">
             <div className="space-y-6">
               <Card>
@@ -476,9 +512,7 @@ function Workflow({
                 )}
               </Card>
               <Card>
-                <SectionTitle sub="Red = failed target · amber = changed · green = OK · grey = unmapped.">
-                  Affected Elements
-                </SectionTitle>
+                <SectionTitle>Affected Elements</SectionTitle>
                 <PaiveWallsTable
                   walls={fixtureRun?.walls ?? []}
                   selectedGuid={wallGuid}
@@ -509,10 +543,10 @@ function Workflow({
         </section>
 
         {/* Section 3 */}
-        <section>
+        <section className={workflowSectionClass}>
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
-              <SectionTitle sub="AI-generated alternatives for the detected model changes.">
+              <SectionTitle variant="workflow" sub="AI-generated alternatives for the detected model changes.">
                 3. Value Engineering Analysis
               </SectionTitle>
               {fixtureRun.d2?.options?.length ? (
@@ -545,7 +579,7 @@ function Workflow({
                   id="paive-reviewer"
                   value={reviewer}
                   onChange={(e) => setReviewer(e.target.value)}
-                  className="mt-2 w-full max-w-md rounded-xl border border-input bg-background/50 px-4 py-3 text-lg outline-none focus:border-primary"
+                  className="mt-2 w-full max-w-md rounded-xl border border-input bg-background/50 px-4 py-3 text-base outline-none focus:border-primary"
                 />
                 <label className="mt-4 block text-base text-muted-foreground" htmlFor="paive-reason">
                   Reason
@@ -556,7 +590,7 @@ function Workflow({
                   onChange={(e) => setDecisionReason(e.target.value)}
                   rows={4}
                   placeholder="Why accept or reject this option?"
-                  className="mt-2 w-full rounded-xl border border-input bg-background/50 p-4 text-lg outline-none placeholder:text-muted-foreground focus:border-primary"
+                  className="mt-2 w-full rounded-xl border border-input bg-background/50 p-4 text-base outline-none placeholder:text-muted-foreground focus:border-primary"
                 />
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
@@ -584,7 +618,7 @@ function Workflow({
             </>
           ) : !ifcFile ? (
             <>
-              <SectionTitle sub="AI-generated alternatives for the detected model changes.">
+              <SectionTitle variant="workflow" sub="AI-generated alternatives for the detected model changes.">
                 3. Value Engineering Analysis
               </SectionTitle>
               <D2BlankOptionCard message="Upload an IFC model to generate ranked alternatives." />
@@ -595,7 +629,7 @@ function Workflow({
             </>
           ) : (
             <>
-              <SectionTitle sub="AI-generated alternatives for the detected model changes.">
+              <SectionTitle variant="workflow" sub="AI-generated alternatives for the detected model changes.">
                 3. Value Engineering Analysis
               </SectionTitle>
               <div className="grid gap-6 md:grid-cols-3">
@@ -605,8 +639,8 @@ function Workflow({
                     onClick={() => setOpt(o.key)}
                     className={cn(
                       "glass relative border-2 p-8 text-left transition-transform hover:-translate-y-1",
-                      toneBorder[o.tone],
-                      opt === o.key ? "ring-4 ring-primary/30" : "opacity-80",
+                      rankAccent(o.rank).border,
+                      opt === o.key ? `ring-4 ${rankAccent(o.rank).ring}` : "opacity-80",
                     )}
                   >
                     {"rec" in o && (
@@ -626,8 +660,8 @@ function Workflow({
                         {opt === o.key && <Check className="h-4 w-4 text-primary-foreground" />}
                       </span>
                     </div>
-                    <h3 className="mt-2 text-[18px] font-semibold">{o.name}</h3>
-                    <p className="mt-4 text-[24px] font-bold">{o.cost}</p>
+                    <h3 className="mt-2 text-lg font-semibold">{o.name}</h3>
+                    <p className="mt-4 text-xl font-bold tabular-nums">{o.cost}</p>
                     <ul className="mt-5 space-y-3">
                       <li className="flex justify-between">
                         <span className="text-muted-foreground">Schedule</span>
@@ -654,7 +688,10 @@ function Workflow({
                       {OPTIONS.map((o) => (
                         <th
                           key={o.key}
-                          className={cn("pb-3 font-semibold", opt === o.key ? "text-primary" : toneText[o.tone])}
+                          className={cn(
+                            "pb-3 font-semibold",
+                            rankHeaderClass(o.rank, opt === o.key),
+                          )}
                         >
                           Option {o.key}
                         </th>
@@ -674,7 +711,14 @@ function Workflow({
                       <tr key={label} className="border-b border-border last:border-0">
                         <td className="py-4 text-muted-foreground">{label}</td>
                         {OPTIONS.map((o) => (
-                          <td key={o.key} className={cn("py-4 font-medium", opt === o.key && "bg-primary/10")}>
+                          <td
+                            key={o.key}
+                            className={cn(
+                              "py-4 font-medium",
+                              k && "tabular-nums",
+                              opt === o.key && rankSelectedCellClass(o.rank),
+                            )}
+                          >
                             {k ? o[k] : "Pass"}
                           </td>
                         ))}
@@ -688,10 +732,10 @@ function Workflow({
         </section>
 
         {/* Section 4 */}
-        <section>
+        <section className={workflowSectionClass}>
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
-              <SectionTitle>4. Decision & Approval</SectionTitle>
+              <SectionTitle variant="workflow">4. Decision & Approval</SectionTitle>
               <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
                 <div className="space-y-6">
                   <VeReportBlock run={fixtureRun} />
@@ -716,11 +760,11 @@ function Workflow({
             </>
           ) : (
             <>
-          <SectionTitle>4. Decision & Approval</SectionTitle>
+          <SectionTitle variant="workflow">4. Decision & Approval</SectionTitle>
           <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
             <Card>
               <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-[18px] font-semibold">Decision</h3>
+                <h3 className="text-lg font-semibold">Decision</h3>
                 <span className="text-muted-foreground">
                   Selected:
                   {legacyOptionSelectionActive ? (
@@ -959,7 +1003,7 @@ function Index() {
             <button onClick={() => setOpen(!open)} aria-label="Toggle projects panel" className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
               {open ? <PanelLeftClose className="h-6 w-6" /> : <PanelLeftOpen className="h-6 w-6" />}
             </button>
-            <div className="hidden border-l border-border pl-4 text-[28px] leading-tight text-muted-foreground lg:block">
+            <div className="hidden border-l border-border pl-4 text-2xl leading-tight text-muted-foreground lg:block">
               Project AI Value Engineering
             </div>
           </div>

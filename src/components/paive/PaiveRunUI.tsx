@@ -1,5 +1,12 @@
 import type { DecideResult, PaiveOption, PaiveRun, PaiveWall } from "@/lib/paive/types";
 import { verdictBadgeClass, wallRowClass } from "@/lib/paive/fakeBackend";
+import {
+  ColorLegendRow,
+  D1_VERDICT_LEGEND,
+  DECISION_LOG_LEGEND,
+  WALL_HEALTH_LEGEND,
+} from "@/components/paive/ColorLegendRow";
+import { rankAccent, rankHeaderClass, rankSelectedCellClass } from "@/lib/veSemantics";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 
@@ -11,12 +18,12 @@ export function VeRunSteps({ run }: { run: PaiveRun }) {
           <li
             key={s.step}
             className={cn(
-              "rounded-xl border px-4 py-3 text-base",
-              s.status === "done" && "border-success/40 bg-success/10",
-              s.status === "waiting" && "border-warning/40 bg-warning/10",
-              s.status === "draft" && "border-primary/30 bg-primary/5",
-              s.status === "blocked" && "border-destructive/40 bg-destructive/10",
-              (s.status === "not_run" || !s.status) && "border-border bg-background/40",
+              "rounded-xl border border-border px-4 py-3 text-base",
+              s.status === "done" && "border-l-4 border-l-success bg-success/[0.04]",
+              s.status === "waiting" && "border-l-4 border-l-warning bg-warning/[0.04]",
+              s.status === "draft" && "border-l-4 border-l-primary bg-primary/[0.04]",
+              s.status === "blocked" && "border-l-4 border-l-destructive bg-destructive/[0.04]",
+              (s.status === "not_run" || !s.status) && "bg-background/40",
             )}
           >
             <div className="font-semibold">
@@ -54,7 +61,7 @@ export function VeRunSteps({ run }: { run: PaiveRun }) {
           ].map(([k, v]) => (
             <div key={k}>
               <dt className="text-muted-foreground">{k}</dt>
-              <dd className="font-semibold">{v}</dd>
+              <dd className="font-semibold tabular-nums">{v}</dd>
             </div>
           ))}
         </dl>
@@ -89,7 +96,7 @@ export function D1ResultPanel({ run }: { run: PaiveRun }) {
   return (
     <div className="space-y-4">
       <VerdictBadge label={d1.verdict_label} className={verdictBadgeClass(d1.verdict_label)} />
-      <p className="text-lg text-muted-foreground">{d1.reason}</p>
+      <p className="text-base text-muted-foreground">{d1.reason}</p>
       <div className="grid gap-3 sm:grid-cols-3">
         <MetricTile
           label="Achievement"
@@ -118,8 +125,9 @@ export function D1ResultPanel({ run }: { run: PaiveRun }) {
           }
         />
       </div>
+      <ColorLegendRow items={D1_VERDICT_LEGEND} className="mt-2" />
       {d1.required_targets_failed.length > 0 && (
-        <ul className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+        <ul className="space-y-2 rounded-xl border border-border border-l-4 border-l-destructive bg-destructive/[0.04] p-4 pl-5">
           {d1.required_targets_failed.map((f) => (
             <li key={f.statement} className="text-base">
               <span className="font-semibold text-destructive">{f.statement}</span>
@@ -139,14 +147,14 @@ function MetricTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-background/40 p-4">
       <div className="text-base text-muted-foreground">{label}</div>
-      <div className="mt-1 text-xl font-bold">{value}</div>
+      <div className="mt-1 text-xl font-bold tabular-nums">{value}</div>
     </div>
   );
 }
 
 function VerdictBadge({ label, className }: { label: string; className: string }) {
   return (
-    <span className={cn("inline-flex rounded-full border px-4 py-1.5 text-lg font-semibold", className)}>{label}</span>
+    <span className={cn("inline-flex rounded-full border px-4 py-1.5 text-base font-semibold", className)}>{label}</span>
   );
 }
 
@@ -179,22 +187,25 @@ export function PaiveWallsTable({
               className={cn(
                 "cursor-pointer border-b border-border transition-colors hover:bg-accent",
                 wallRowClass(w.colour),
-                selectedGuid === w.guid && "bg-primary/10",
+                selectedGuid === w.guid && "ring-1 ring-inset ring-primary/30 bg-accent/25",
               )}
             >
               <td className="py-3 pr-2 font-medium">{w.name}</td>
               <td className="py-3 text-muted-foreground">{w.type ?? "—"}</td>
               <td className="py-3 capitalize">{w.change}</td>
-              <td className="py-3 font-mono text-sm text-muted-foreground">
+              <td className="py-3 text-sm text-muted-foreground tabular-nums">
                 {w.u_value ?? "—"} / {w.fire_min ?? "—"} / {w.rw_db ?? "—"}
               </td>
-              <td className="py-3 text-right font-semibold">{w.cost_eur != null ? `€${Math.round(w.cost_eur).toLocaleString("en-US")}` : "—"}</td>
+              <td className="py-3 text-right font-semibold tabular-nums">
+                {w.cost_eur != null ? `€${Math.round(w.cost_eur).toLocaleString("en-US")}` : "—"}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      <ColorLegendRow items={WALL_HEALTH_LEGEND} className="mt-4" />
       {walls.some((w) => w.ve2.status === "unmapped") && (
-        <p className="mt-3 text-base text-muted-foreground">
+        <p className="mt-3 text-sm text-muted-foreground">
           Grey walls need a person to classify missing data before the next run.
         </p>
       )}
@@ -243,18 +254,6 @@ const COMPARISON_ROWS: {
   { label: "Why", getValue: (o) => o.why, wrap: true },
 ];
 
-function rankHeaderTone(rank: number) {
-  if (rank === 1) return "text-success";
-  if (rank === 2) return "text-primary";
-  return "text-warning";
-}
-
-function rankCellHighlight(rank: number) {
-  if (rank === 1) return "bg-success/10";
-  if (rank === 2) return "bg-primary/10";
-  return "bg-warning/10";
-}
-
 export function D2ComparisonMatrix({
   options,
   selectedId,
@@ -285,11 +284,7 @@ export function D2ComparisonMatrix({
             return (
               <th
                 key={col.id}
-                className={cn(
-                  "pb-3 font-semibold",
-                  rankHeaderTone(col.rank),
-                  selected && !placeholder && rankHeaderTone(col.rank),
-                )}
+                className={cn("pb-3 font-semibold", rankHeaderClass(col.rank, selected && !placeholder))}
               >
                 {col.label}
               </th>
@@ -313,7 +308,8 @@ export function D2ComparisonMatrix({
                   className={cn(
                     "py-4 font-medium",
                     row.wrap && "max-w-xs align-top leading-relaxed",
-                    selected && !placeholder && rankCellHighlight(col.rank),
+                    !row.wrap && "tabular-nums",
+                    selected && !placeholder && rankSelectedCellClass(col.rank),
                     placeholder && "text-muted-foreground",
                     valueTone,
                   )}
@@ -336,10 +332,10 @@ export function D2BlankOptionCard({ message }: { message?: string }) {
         aria-hidden
         className="glass border-2 border-border p-6 text-left"
       >
-        <h3 className="text-[18px] font-semibold text-muted-foreground">—</h3>
+        <h3 className="text-lg font-semibold text-muted-foreground">—</h3>
         <p className="mt-3 text-base text-muted-foreground">{message ?? "No ranked options yet."}</p>
-        <p className="mt-6 text-xl font-bold text-muted-foreground">ΔV — · ΔR —</p>
-        <p className="mt-2 text-base text-muted-foreground">U — · — min fire · Rw — dB</p>
+        <p className="mt-6 text-xl font-bold text-muted-foreground tabular-nums">ΔV — · ΔR —</p>
+        <p className="mt-2 text-base text-muted-foreground tabular-nums">U — · — min fire · Rw — dB</p>
       </div>
     </div>
   );
@@ -360,10 +356,7 @@ export function D2OptionsPanel({
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
         {d2.options.map((o) => {
-          const rankBorder =
-            o.rank === 1 ? "border-success" : o.rank === 2 ? "border-primary" : "border-warning";
-          const rankRing =
-            o.rank === 1 ? "ring-success/25" : o.rank === 2 ? "ring-primary/25" : "ring-warning/25";
+          const rank = rankAccent(o.rank);
           return (
           <button
             key={o.assembly_id}
@@ -371,8 +364,8 @@ export function D2OptionsPanel({
             onClick={() => onSelect(o.assembly_id)}
             className={cn(
               "glass border-2 p-6 text-left transition-transform hover:-translate-y-0.5",
-              rankBorder,
-              selectedId === o.assembly_id && `ring-4 ${rankRing}`,
+              rank.border,
+              selectedId === o.assembly_id && `ring-4 ${rank.ring}`,
             )}
           >
             {o.rank === 1 && (
@@ -380,10 +373,10 @@ export function D2OptionsPanel({
                 Rank {o.rank} recommended
               </span>
             )}
-            <h3 className="text-[18px] font-semibold">{o.assembly_id}</h3>
+            <h3 className="text-lg font-semibold">{o.assembly_id}</h3>
             <p className="mt-1 text-base text-muted-foreground">{o.description}</p>
-            <p className="mt-3 text-xl font-bold">{optionValueCostLine(o)}</p>
-            <p className="mt-2 text-base">{optionPerformanceLine(o)}</p>
+            <p className="mt-3 text-xl font-bold tabular-nums">{optionValueCostLine(o)}</p>
+            <p className="mt-2 text-base tabular-nums">{optionPerformanceLine(o)}</p>
             <p className="mt-2 flex items-center gap-1 text-base">
               {o.meets_all_required_targets ? (
                 <>
@@ -409,7 +402,7 @@ export function VeReportBlock({ run }: { run: PaiveRun }) {
   return (
     <div className="rounded-xl border border-border bg-background/40 p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="font-semibold">Report draft (VE6)</h4>
+        <h4 className="text-lg font-semibold">Report draft (VE6)</h4>
         {run.ve6.number_check.passed && <span className="text-base text-success">Numbers checked ✓</span>}
       </div>
       <p className="text-base leading-relaxed text-muted-foreground">{run.ve6.text}</p>
@@ -442,6 +435,7 @@ export function PaiveLogTable({ entries }: { entries: ReturnType<typeof import("
           ))}
         </tbody>
       </table>
+      <ColorLegendRow items={DECISION_LOG_LEGEND} className="mt-4" />
     </div>
   );
 }

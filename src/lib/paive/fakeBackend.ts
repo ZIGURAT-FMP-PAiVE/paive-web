@@ -1,3 +1,4 @@
+import { wallHealthRowClass } from "@/lib/veSemantics";
 import type { DecideResult, PaiveLogEntry, PaiveRun } from "./types";
 
 import run001 from "./fixtures/run_001_baseline_v01.json";
@@ -81,8 +82,5 @@ export function verdictBadgeClass(label: string): string {
 }
 
 export function wallRowClass(colour: string): string {
-  if (colour === "red") return "border-l-4 border-l-destructive";
-  if (colour === "amber") return "border-l-4 border-l-warning";
-  if (colour === "green") return "border-l-4 border-l-success";
-  return "border-l-4 border-l-muted-foreground/50 opacity-90";
+  return wallHealthRowClass(colour);
 }
