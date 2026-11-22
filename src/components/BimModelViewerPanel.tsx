@@ -51,7 +51,7 @@ function PropertiesEmptyState({ message }: { message: string }) {
         <Box className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.25} />
         <ScanSearch className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full border border-border bg-card p-1.5 text-primary" />
       </div>
-      <p className="max-w-[16rem] text-sm leading-relaxed text-muted-foreground">{message}</p>
+      <p className="max-w-[16rem] text-base leading-relaxed text-muted-foreground">{message}</p>
     </div>
   );
 }
@@ -68,7 +68,7 @@ function ElementPropertiesContent({
   if (!ifcFile) {
     return (
       <>
-        <h3 className="mb-2 text-lg font-semibold">Element Properties</h3>
+        <h3 className="mb-2 text-xl font-semibold tracking-tight">Element Properties</h3>
         <PropertiesEmptyState message="Upload an IFC model to inspect elements in the viewer." />
       </>
     );
@@ -77,7 +77,7 @@ function ElementPropertiesContent({
   if (!info) {
     return (
       <>
-        <h3 className="mb-2 text-lg font-semibold">Element Properties</h3>
+        <h3 className="mb-2 text-xl font-semibold tracking-tight">Element Properties</h3>
         <PropertiesEmptyState message="Click an element in the model to see identification, quantities, and PAiVE context." />
       </>
     );
@@ -110,7 +110,7 @@ function ElementPropertiesContent({
 
   return (
     <>
-      <h3 className="mb-1 text-lg font-semibold">Element Properties</h3>
+      <h3 className="mb-1 text-xl font-semibold tracking-tight">Element Properties</h3>
       <p className="mb-3 truncate text-sm text-muted-foreground">
         {info.name || info.ifcClass} · {info.expressId}
       </p>
@@ -182,7 +182,7 @@ export function BimModelViewerPanel({
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <Box className="h-6 w-6 text-primary" />
-          <h3 className="text-lg font-semibold">BIM Model Viewer</h3>
+          <h3 className="text-xl font-semibold tracking-tight">BIM Model Viewer</h3>
         </div>
         <Badge variant="muted" className="max-w-[min(100%,14rem)] truncate text-sm font-medium">
           {ifcFile ? ifcFile.name : "No model"}

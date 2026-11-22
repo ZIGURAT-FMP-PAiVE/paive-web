@@ -129,15 +129,15 @@ function SectionTitle({
         <div className="w-1 shrink-0 self-stretch rounded-full bg-primary" aria-hidden />
         <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-semibold tracking-tight">{children}</h2>
-          {sub ? <p className="mt-1 text-sm text-muted-foreground">{sub}</p> : null}
+          {sub ? <p className="mt-2 text-base leading-relaxed text-muted-foreground">{sub}</p> : null}
         </div>
       </div>
     );
   }
   return (
     <div className="mb-6">
-      <h2 className="text-lg font-semibold">{children}</h2>
-      {sub ? <p className="mt-1 text-sm text-muted-foreground">{sub}</p> : null}
+      <h2 className="text-xl font-semibold tracking-tight">{children}</h2>
+      {sub ? <p className="mt-2 text-base leading-relaxed text-muted-foreground">{sub}</p> : null}
     </div>
   );
 }
@@ -146,7 +146,7 @@ function IfcVersionHistoryCard({ project }: { project: Project }) {
   const uploaded = uploadedIfcVersions(project);
   return (
     <Card variant="secondary">
-      <h3 className="mb-6 text-lg font-semibold">Version History</h3>
+      <h3 className="mb-6 text-xl font-semibold tracking-tight">Version History</h3>
       {uploaded.length === 0 ? (
         <p className="text-base text-muted-foreground">No IFC versions uploaded yet.</p>
       ) : (
@@ -462,7 +462,7 @@ function Workflow({
                     {ifcFile ? (
                       <D1BaselinePlaceholder />
                     ) : (
-                      <p className="text-sm text-muted-foreground">Upload an IFC model to start change analysis.</p>
+                      <p className="text-base leading-relaxed text-muted-foreground">Upload an IFC model to start change analysis.</p>
                     )}
                   </>
                 )}
@@ -692,7 +692,7 @@ function Workflow({
           <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
             <Card>
               <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Decision</h3>
+                <h3 className="text-xl font-semibold tracking-tight">Decision</h3>
                 <span className="text-muted-foreground">
                   Selected:
                   {legacyOptionSelectionActive ? (
@@ -968,17 +968,19 @@ function Index() {
               Project AI Value Engineering
             </div>
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
+          <div className="flex items-center gap-1.5 rounded-xl border border-border bg-card p-1.5">
             {([["workflow", "Workflow", LayoutDashboard], ["config", "Configuration", Settings2]] as const).map(([k, l, I]) => (
               <Button
                 key={k}
                 type="button"
-                size="sm"
                 variant={view === k ? "default" : "ghost"}
                 onClick={() => setView(k)}
-                className={view === k ? undefined : "text-muted-foreground"}
+                className={cn(
+                  "h-11 rounded-lg px-5 text-base font-medium [&_svg]:!size-5",
+                  view === k ? "shadow-sm" : "text-muted-foreground",
+                )}
               >
-                <I className="h-5 w-5" />
+                <I />
                 {l}
               </Button>
             ))}

@@ -15,8 +15,8 @@ function Block({ n, label, title, desc, icon, children }: { n: string; label: st
       <div className="flex items-start justify-between">
         <div>
           <div className="text-base font-bold tracking-widest text-primary">{n} / {label}</div>
-          <h3 className="mt-1 text-lg font-semibold">{title}</h3>
-          {desc && <p className="mt-1 text-sm text-muted-foreground">{desc}</p>}
+          <h3 className="mt-1 text-xl font-semibold tracking-tight">{title}</h3>
+          {desc && <p className="mt-2 text-base leading-relaxed text-muted-foreground">{desc}</p>}
         </div>
         <span className="text-muted-foreground">{icon}</span>
       </div>

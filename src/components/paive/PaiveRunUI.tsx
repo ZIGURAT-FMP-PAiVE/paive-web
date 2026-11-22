@@ -108,7 +108,7 @@ export function D1BaselinePlaceholder() {
       className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-5 py-8"
       role="status"
     >
-      <p className="text-center text-sm leading-relaxed text-muted-foreground">
+      <p className="text-center text-base leading-relaxed text-muted-foreground">
         D1 verdict appears after the model is analyzed against project targets.
       </p>
     </div>
@@ -526,11 +526,11 @@ export function Ve5HumanGatePanel({
     >
       <div className={cn("space-y-4", inactive && "opacity-80")}>
         {inactive ? (
-          <p className="text-sm leading-relaxed text-muted-foreground" role="status">
+          <p className="text-base leading-relaxed text-muted-foreground" role="status">
             No ranked options for this run — the gate stays inactive until VE generates alternatives.
           </p>
         ) : !canSubmit ? (
-          <p className="text-sm text-muted-foreground" role="status">
+          <p className="text-base text-muted-foreground" role="status">
             Enter a reason below to enable accept or reject.
           </p>
         ) : null}
