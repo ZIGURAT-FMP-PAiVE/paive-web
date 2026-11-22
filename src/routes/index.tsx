@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Toaster, toast } from "sonner";
 import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
 import { BimViewer, type IfcInfo } from "@/components/BimViewer";
-import { findCost, type CostRow } from "@/lib/costFile";
+import type { CostRow } from "@/lib/costFile";
 import { cn } from "@/lib/utils";
 import {
   activeIfcVersion,
@@ -96,17 +96,7 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
   return <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-base font-medium", map[tone])}>{children}</span>;
 }
 
-function ElementPropertiesContent({
-  ifcFile,
-  info,
-  costRows,
-  formatEur,
-}: {
-  ifcFile: File | null;
-  info: IfcInfo | null;
-  costRows: CostRow[];
-  formatEur: (n: number) => string;
-}) {
+function ElementPropertiesContent({ ifcFile, info }: { ifcFile: File | null; info: IfcInfo | null }) {
   const Grid = ({ rows }: { rows: [string, string][] }) => (
     <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
       {rows.map(([k, v], i) => (
@@ -117,8 +107,6 @@ function ElementPropertiesContent({
       ))}
     </dl>
   );
-
-  const cost = findCost(costRows, [info?.tag, info?.guid, info?.name, info?.expressId]);
 
   return (
     <>
@@ -139,26 +127,6 @@ function ElementPropertiesContent({
                 ["Tag", info.tag || "—"],
               ]}
             />
-          </div>
-          <div className="border-t border-border pt-4">
-            <h4 className="mb-3 font-semibold text-primary">Cost Data</h4>
-            {cost ? (
-              <Grid
-                rows={[
-                  ["Description", cost.description],
-                  ["Cost Code", cost.code],
-                  ["Quantity", cost.quantity != null ? `${cost.quantity} ${cost.unit}` : ""],
-                  ["Unit Rate", cost.rate != null ? formatEur(cost.rate) : ""],
-                  ["Total Cost", formatEur(cost.total)],
-                ]}
-              />
-            ) : (
-              <p className="text-muted-foreground">
-                {costRows.length
-                  ? "No matching row in the cost file (matched by Element ID, Tag, GUID or Name)."
-                  : "Upload a cost file to link costs."}
-              </p>
-            )}
           </div>
           {info.groups.map((g, i) => (
             <details key={g.name + i} className="border-t border-border pt-4" open={i < 2}>
@@ -186,8 +154,6 @@ function BimModelViewerPanel({
   onInspect,
   onModelLoaded,
   info,
-  costRows,
-  formatEur,
 }: {
   ifcFile: File | null;
   projectId: string;
@@ -197,8 +163,6 @@ function BimModelViewerPanel({
   onInspect: (info: IfcInfo | null) => void;
   onModelLoaded: (stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
   info: IfcInfo | null;
-  costRows: CostRow[];
-  formatEur: (n: number) => string;
 }) {
   return (
     <div className="glass flex flex-col overflow-hidden">
@@ -226,7 +190,7 @@ function BimModelViewerPanel({
           </div>
         </div>
         <div className="max-h-[40vh] shrink-0 overflow-y-auto border-t border-border bg-background/30 p-6 lg:max-h-[min(58vh,680px)] lg:min-h-[480px] lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0 xl:w-[26rem]">
-          <ElementPropertiesContent ifcFile={ifcFile} info={info} costRows={costRows} formatEur={formatEur} />
+          <ElementPropertiesContent ifcFile={ifcFile} info={info} />
         </div>
       </div>
     </div>
@@ -457,7 +421,7 @@ function Workflow({
         <section>
           <h2 className="mb-6 text-[18px] font-semibold">2. Change Analysis</h2>
           <div className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-6">
               <Card>
                 {fixtureRun?.status === "blocked" && fixtureRun.blocked ? (
                   <>
@@ -499,8 +463,6 @@ function Workflow({
                 if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
               }}
               info={info}
-              costRows={costRows}
-              formatEur={eur}
             />
           </div>
         </section>
@@ -509,8 +471,8 @@ function Workflow({
         <section>
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
-              <SectionTitle sub="Ranked assemblies from D2 (fixture data).">
-                3. Options and decision
+              <SectionTitle sub="AI-generated alternatives for the detected model changes.">
+                3. Value Engineering Analysis
               </SectionTitle>
               {fixtureRun.d2?.options?.length ? (
                 <D2OptionsPanel
@@ -618,9 +580,7 @@ function Workflow({
         <section>
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
-              <SectionTitle sub="VE6 draft and decision log from get_log().">
-                4. Report and history
-              </SectionTitle>
+              <SectionTitle>4. Decision & Approval</SectionTitle>
               <VeReportBlock run={fixtureRun} />
               <Card className="mt-6">
                 <SectionTitle>Decision log</SectionTitle>
