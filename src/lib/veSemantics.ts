@@ -63,3 +63,23 @@ export function wallHealthDotClass(colour: string): string {
 export function ifcVersionDotClass(isActive: boolean) {
   return isActive ? rankAccent(2).dot : rankAccent(1).dot;
 }
+
+/** Hover / selected glow for clickable ranked option cards (no resting ring). */
+export function rankOptionGlowClass(rank: number, selected: boolean) {
+  if (rank === 1) {
+    return cn(
+      "hover:shadow-[0_0_22px_-8px] hover:shadow-success/45",
+      selected && "shadow-[0_0_26px_-6px] shadow-success/50",
+    );
+  }
+  if (rank === 2) {
+    return cn(
+      "hover:shadow-[0_0_22px_-8px] hover:shadow-primary/45",
+      selected && "shadow-[0_0_26px_-6px] shadow-primary/50",
+    );
+  }
+  return cn(
+    "hover:shadow-[0_0_22px_-8px] hover:shadow-warning/45",
+    selected && "shadow-[0_0_26px_-6px] shadow-warning/50",
+  );
+}

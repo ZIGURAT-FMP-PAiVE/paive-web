@@ -5,7 +5,13 @@ import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Box, Download, Save, Ch
 import { BimViewer, type IfcInfo } from "@/components/BimViewer";
 import type { CostRow } from "@/lib/costFile";
 import { cn } from "@/lib/utils";
-import { ifcVersionDotClass, rankAccent, rankHeaderClass, rankSelectedCellClass } from "@/lib/veSemantics";
+import {
+  ifcVersionDotClass,
+  rankAccent,
+  rankHeaderClass,
+  rankOptionGlowClass,
+  rankSelectedCellClass,
+} from "@/lib/veSemantics";
 import {
   activeIfcVersion,
   appendIfcVersion,
@@ -32,7 +38,7 @@ import {
 } from "@/lib/projectStorage";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard, Trash2 } from "lucide-react";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TruncatedText } from "@/components/TruncatedText";
 import {
   D1BlockedPanel,
@@ -79,10 +85,49 @@ const OPTIONS = [
 const toneBorder = { success: "border-success", primary: "border-primary", warning: "border-warning" };
 const toneText = { success: "text-success", primary: "text-primary", warning: "text-warning" };
 
-function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("glass p-8", className)}>{children}</div>;
+function Card({
+  children,
+  className,
+  variant = "primary",
+}: {
+  children: ReactNode;
+  className?: string;
+  variant?: "primary" | "secondary";
+}) {
+  return (
+    <div className={cn(variant === "primary" ? "glass p-8" : "panel-secondary p-8", className)}>{children}</div>
+  );
 }
-const workflowSectionClass = "border-t border-border pt-10";
+const workflowSectionClass = "scroll-mt-28 border-t border-border pt-10";
+
+type WorkflowStep = { id: number; label: string; hasData: boolean };
+
+function WorkflowStepNav({ steps }: { steps: WorkflowStep[] }) {
+  return (
+    <nav
+      aria-label="Workflow sections"
+      className="sticky top-28 hidden h-fit w-36 shrink-0 flex-col gap-2 self-start xl:flex"
+    >
+      {steps.map((step) => (
+        <a
+          key={step.id}
+          href={`#workflow-step-${step.id}`}
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <span
+            className={cn(
+              "h-2.5 w-2.5 shrink-0 rounded-full border border-border",
+              step.hasData ? "border-primary bg-primary" : "bg-muted",
+            )}
+            aria-hidden
+          />
+          <span className="font-medium">{step.id}.</span>
+          <span className="truncate">{step.label}</span>
+        </a>
+      ))}
+    </nav>
+  );
+}
 
 function SectionTitle({
   children,
@@ -125,7 +170,7 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
 function IfcVersionHistoryCard({ project }: { project: Project }) {
   const uploaded = uploadedIfcVersions(project);
   return (
-    <Card>
+    <Card variant="secondary">
       <h3 className="mb-6 text-lg font-semibold">Version History</h3>
       {uploaded.length === 0 ? (
         <p className="text-base text-muted-foreground">No IFC versions uploaded yet.</p>
@@ -366,6 +411,27 @@ function Workflow({
     return "—";
   })();
 
+  const workflowSteps: WorkflowStep[] = [
+    {
+      id: 1,
+      label: "Upload",
+      hasData: uploadedIfcVersions(project).length > 0 || Boolean(project.costData),
+    },
+    { id: 2, label: "Analysis", hasData: Boolean(ifcFile) },
+    {
+      id: 3,
+      label: "VE",
+      hasData: Boolean(ifcFile && fixtureRun && fixtureRun.status !== "blocked"),
+    },
+    {
+      id: 4,
+      label: "Decision",
+      hasData: Boolean(
+        decideResult || decision || (fixtureRun?.ve6?.text && fixtureRun.status !== "blocked"),
+      ),
+    },
+  ];
+
   const handleIfc = (f?: File) => {
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
@@ -375,15 +441,15 @@ function Workflow({
   };
 
   return (
-    <div>
-      <main className="space-y-0 pb-20">
+    <div className="flex items-start gap-8">
+      <main className="min-w-0 flex-1 space-y-0 pb-20">
         <div className="mb-10">
           <h1 className="text-3xl font-bold tracking-tight">{project.config.name} - VE Workflow</h1>
           <p className="mt-2 text-base text-muted-foreground">Upload, analyse, compare and approve design changes in one place.</p>
         </div>
 
         {/* Section 1 */}
-        <section>
+        <section id="workflow-step-1">
           <SectionTitle
             variant="workflow"
             sub="Each upload is kept as the next version (v01, v02, …). Only files you upload are stored."
@@ -408,12 +474,29 @@ function Workflow({
               onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
               onDragLeave={() => setDrag(false)}
               onDrop={(e) => { e.preventDefault(); setDrag(false); handleIfc(e.dataTransfer.files[0]); }}
-              className={cn("flex flex-col items-center rounded-2xl border-2 border-dashed p-10 text-center transition-colors", drag ? "border-primary bg-primary/10" : "border-border bg-background/40")}
+              className={cn(
+                "relative flex flex-col items-center rounded-2xl border-2 border-dashed p-10 text-center transition-colors",
+                drag ? "border-primary bg-primary/10" : "border-border bg-background/40",
+              )}
             >
-              <Upload className="h-12 w-12 text-primary" />
-              <p className="mt-4 text-lg font-medium">Drag & drop your IFC file here</p>
-              <p className="text-base text-muted-foreground">IFC 2x3 / IFC4 · up to 500 MB</p>
-              <button onClick={() => ifcInput.current?.click()} className="mt-5 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90">Select IFC File</button>
+              {drag && (
+                <span
+                  className="pointer-events-none absolute inset-4 animate-pulse rounded-xl border border-dashed border-primary/60"
+                  aria-hidden
+                />
+              )}
+              <Upload
+                className={cn("relative z-[1] h-12 w-12 text-primary transition-transform duration-200", drag && "scale-110")}
+              />
+              <p className="relative z-[1] mt-4 text-lg font-medium">Drag & drop your IFC file here</p>
+              <p className="relative z-[1] text-base text-muted-foreground">IFC 2x3 / IFC4 · up to 500 MB</p>
+              <button
+                type="button"
+                onClick={() => ifcInput.current?.click()}
+                className="relative z-[1] mt-5 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"
+              >
+                Select IFC File
+              </button>
               <input ref={ifcInput} type="file" accept=".ifc" hidden onChange={(e) => { handleIfc(e.target.files?.[0]); e.target.value = ""; }} />
             </div>
             {uploadedIfcVersions(project).length > 0 && (
@@ -462,7 +545,7 @@ function Workflow({
               )}
             </div>
           </Card>
-          <Card>
+          <Card variant="secondary">
             <SectionTitle>Project Summary</SectionTitle>
             <dl className="space-y-5">
               {[
@@ -495,10 +578,10 @@ function Workflow({
         </section>
 
         {/* Section 2 */}
-        <section className={workflowSectionClass}>
+        <section id="workflow-step-2" className={workflowSectionClass}>
           <SectionTitle variant="workflow">2. Change Analysis</SectionTitle>
-          <div className="space-y-6">
-            <div className="space-y-6">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
+            <div className="min-w-0 space-y-6 xl:max-w-[50%] xl:flex-[1_1_50%] xl:border-r xl:border-border xl:pr-6">
               <Card>
                 {fixtureRun?.status === "blocked" && fixtureRun.blocked ? (
                   <>
@@ -523,27 +606,29 @@ function Workflow({
                 />
               </Card>
             </div>
-            <BimModelViewerPanel
-              ifcFile={ifcFile}
-              projectId={project.id}
-              activeVersion={project.activeIfcVersion}
-              selectedId={viewerSelection}
-              onSelect={(id) => {
-                setSel(id);
-                setWallGuid(id);
-              }}
-              onInspect={setInfo}
-              onModelLoaded={(stats) => {
-                setIfcElementCount(stats.elementCount);
-                if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
-              }}
-              info={info}
-            />
+            <div className="min-w-0 flex-1 xl:pl-2">
+              <BimModelViewerPanel
+                ifcFile={ifcFile}
+                projectId={project.id}
+                activeVersion={project.activeIfcVersion}
+                selectedId={viewerSelection}
+                onSelect={(id) => {
+                  setSel(id);
+                  setWallGuid(id);
+                }}
+                onInspect={setInfo}
+                onModelLoaded={(stats) => {
+                  setIfcElementCount(stats.elementCount);
+                  if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
+                }}
+                info={info}
+              />
+            </div>
           </div>
         </section>
 
         {/* Section 3 */}
-        <section className={workflowSectionClass}>
+        <section id="workflow-step-3" className={workflowSectionClass}>
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
               <SectionTitle variant="workflow" sub="AI-generated alternatives for the detected model changes.">
@@ -560,7 +645,7 @@ function Workflow({
                   message={fixtureRun.d2?.note ?? "No alternatives required for this run."}
                 />
               )}
-              <Card className="mt-6">
+              <Card variant="secondary" className="mt-6">
                 <SectionTitle>Comparison Matrix</SectionTitle>
                 {fixtureRun.d2?.options?.length ? (
                   <D2ComparisonMatrix options={fixtureRun.d2.options} selectedId={selectedAssembly} />
@@ -568,7 +653,7 @@ function Workflow({
                   <D2ComparisonMatrix placeholder />
                 )}
               </Card>
-              <Card className="mt-6">
+              <Card variant="secondary" className="mt-6">
                 <SectionTitle sub="Reason is required. Calls decide() on the fixture back end.">
                   Human gate (VE5)
                 </SectionTitle>
@@ -622,7 +707,7 @@ function Workflow({
                 3. Value Engineering Analysis
               </SectionTitle>
               <D2BlankOptionCard message="Upload an IFC model to generate ranked alternatives." />
-              <Card className="mt-6">
+              <Card variant="secondary" className="mt-6">
                 <SectionTitle>Comparison Matrix</SectionTitle>
                 <D2ComparisonMatrix placeholder />
               </Card>
@@ -638,9 +723,10 @@ function Workflow({
                     key={o.key}
                     onClick={() => setOpt(o.key)}
                     className={cn(
-                      "glass relative border-2 p-8 text-left transition-transform hover:-translate-y-1",
+                      "glass relative border-2 p-8 text-left transition-all duration-200 hover:-translate-y-1",
                       rankAccent(o.rank).border,
-                      opt === o.key ? `ring-4 ${rankAccent(o.rank).ring}` : "opacity-80",
+                      rankOptionGlowClass(o.rank, opt === o.key),
+                      opt !== o.key && "opacity-90",
                     )}
                   >
                     {"rec" in o && (
@@ -679,7 +765,7 @@ function Workflow({
                   </button>
                 ))}
               </div>
-              <Card className="mt-6">
+              <Card variant="secondary" className="mt-6">
                 <SectionTitle>Comparison Matrix</SectionTitle>
                 <table className="w-full text-left">
                   <thead>
@@ -732,14 +818,14 @@ function Workflow({
         </section>
 
         {/* Section 4 */}
-        <section className={workflowSectionClass}>
+        <section id="workflow-step-4" className={workflowSectionClass}>
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
               <SectionTitle variant="workflow">4. Decision & Approval</SectionTitle>
               <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
                 <div className="space-y-6">
                   <VeReportBlock run={fixtureRun} />
-                  <Card>
+                  <Card variant="secondary">
                     <SectionTitle>Decision log</SectionTitle>
                     <PaiveLogTable entries={paiveLog} />
                   </Card>
@@ -814,6 +900,7 @@ function Workflow({
           )}
         </section>
       </main>
+      <WorkflowStepNav steps={workflowSteps} />
     </div>
   );
 }
@@ -829,7 +916,7 @@ function ProjectStatusSelect({ value, onChange }: { value: ProjectStatus; onChan
   const chevronTone =
     value === "On track" ? "text-success" : value === "Analyzing" ? "text-warning" : "text-muted-foreground";
   return (
-    <div className="relative mt-1 inline-block w-full max-w-[11.5rem]">
+    <div className="relative mt-2 block w-full">
       <select
         value={value}
         aria-label="Project status"
@@ -1024,7 +1111,7 @@ function Index() {
       <div className="flex pt-20">
         <aside className={cn("sticky top-20 h-[calc(100vh-5rem)] shrink-0 overflow-y-auto border-r border-border bg-card/40 transition-all", open ? "w-80 p-5" : "w-20 p-3")}>
           {open && <div className="mb-4 px-1 text-base font-bold tracking-widest text-muted-foreground">PROJECTS</div>}
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {projects.map((p) => (
               <li key={p.id}>
                 <div
@@ -1049,8 +1136,15 @@ function Index() {
                     </span>
                     {open && (
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-semibold">{p.config.name}</span>
-                        <span className="block truncate text-base text-muted-foreground">{p.config.stage}</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="block truncate font-semibold">{p.config.name}</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            {p.config.name}
+                          </TooltipContent>
+                        </Tooltip>
+                        <span className="block truncate text-sm text-muted-foreground">{p.config.stage}</span>
                         <ProjectStatusSelect value={p.status} onChange={(status) => updateProjectStatus(p.id, status)} />
                       </span>
                     )}
@@ -1077,7 +1171,7 @@ function Index() {
           </ul>
         </aside>
         <main className="min-w-0 flex-1 px-8 pt-10">
-          <div className="mx-auto max-w-[1400px]">
+          <div className="mx-auto w-full max-w-[min(1400px,100%)]">
             <div className={view === "workflow" ? undefined : "hidden"}>
               <Workflow
                 key={active.id}

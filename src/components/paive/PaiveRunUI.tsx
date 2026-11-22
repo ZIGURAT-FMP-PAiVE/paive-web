@@ -6,7 +6,7 @@ import {
   DECISION_LOG_LEGEND,
   WALL_HEALTH_LEGEND,
 } from "@/components/paive/ColorLegendRow";
-import { rankAccent, rankHeaderClass, rankSelectedCellClass } from "@/lib/veSemantics";
+import { rankAccent, rankHeaderClass, rankOptionGlowClass, rankSelectedCellClass } from "@/lib/veSemantics";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 
@@ -330,7 +330,7 @@ export function D2BlankOptionCard({ message }: { message?: string }) {
     <div className="grid gap-6 md:grid-cols-2">
       <div
         aria-hidden
-        className="glass border-2 border-border p-6 text-left"
+        className="panel-secondary border-2 border-border p-6 text-left"
       >
         <h3 className="text-lg font-semibold text-muted-foreground">—</h3>
         <p className="mt-3 text-base text-muted-foreground">{message ?? "No ranked options yet."}</p>
@@ -363,9 +363,9 @@ export function D2OptionsPanel({
             type="button"
             onClick={() => onSelect(o.assembly_id)}
             className={cn(
-              "glass border-2 p-6 text-left transition-transform hover:-translate-y-0.5",
+              "glass border-2 p-6 text-left transition-all duration-200 hover:-translate-y-0.5",
               rank.border,
-              selectedId === o.assembly_id && `ring-4 ${rank.ring}`,
+              rankOptionGlowClass(o.rank, selectedId === o.assembly_id),
             )}
           >
             {o.rank === 1 && (
@@ -400,7 +400,7 @@ export function D2OptionsPanel({
 export function VeReportBlock({ run }: { run: PaiveRun }) {
   if (!run.ve6?.text) return null;
   return (
-    <div className="rounded-xl border border-border bg-background/40 p-5">
+    <div className="panel-secondary p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h4 className="text-lg font-semibold">Report draft (VE6)</h4>
         {run.ve6.number_check.passed && <span className="text-base text-success">Numbers checked ✓</span>}

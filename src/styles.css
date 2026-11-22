@@ -139,4 +139,10 @@
   border: 1px solid var(--border);
   border-radius: 1rem;
 }
+
+@utility panel-secondary {
+  background: color-mix(in oklab, var(--card) 60%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
 body { font-size: 13.5px; font-family: var(--font-sans); }
