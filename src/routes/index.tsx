@@ -30,7 +30,7 @@ import {
   type ProjectBaseline,
 } from "@/lib/projectStorage";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
-import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard, Trash2 } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard, Trash2 } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TruncatedText } from "@/components/TruncatedText";
 import {
@@ -304,6 +304,8 @@ function Workflow({
 
   const useFixtureUi = Boolean(fixtureRun && ifcFile);
   const viewerSelection = useFixtureUi && wallGuid ? wallGuid : sel;
+  /** Legacy §4 “Selected: Option X” only when §3 shows demo A/B/C cards (blocked run). */
+  const legacyOptionSelectionActive = Boolean(ifcFile && fixtureRun?.status === "blocked");
 
   const submitPaiveDecision = (kind: "accept" | "reject") => {
     if (!fixtureRun) return;
@@ -719,7 +721,21 @@ function Workflow({
             <Card>
               <div className="mb-5 flex items-center justify-between">
                 <h3 className="text-[18px] font-semibold">Decision</h3>
-                <span className="text-muted-foreground">Selected: <span className="font-semibold text-primary">Option {opt}</span>{decision && <> · <Badge tone={decision === "Approved" ? "success" : "warning"}>{decision}</Badge></>}</span>
+                <span className="text-muted-foreground">
+                  Selected:
+                  {legacyOptionSelectionActive ? (
+                    <>
+                      {" "}
+                      <span className="font-semibold text-primary">Option {opt}</span>
+                    </>
+                  ) : null}
+                  {decision && (
+                    <>
+                      {legacyOptionSelectionActive ? " · " : " "}
+                      <Badge tone={decision === "Approved" ? "success" : "warning"}>{decision}</Badge>
+                    </>
+                  )}
+                </span>
               </div>
               <div className="flex flex-wrap gap-3">
                 <button onClick={() => { setDecision("Approved"); toast.success(`Option ${opt} approved`); }} className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"><Check className="h-5 w-5" />Approve</button>
@@ -766,24 +782,32 @@ const statusSelectClass: Record<ProjectStatus, string> = {
 };
 
 function ProjectStatusSelect({ value, onChange }: { value: ProjectStatus; onChange: (status: ProjectStatus) => void }) {
+  const chevronTone =
+    value === "On track" ? "text-success" : value === "Analyzing" ? "text-warning" : "text-muted-foreground";
   return (
-    <select
-      value={value}
-      aria-label="Project status"
-      onClick={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
-      onChange={(e) => onChange(e.target.value as ProjectStatus)}
-      className={cn(
-        "mt-1 max-w-full cursor-pointer rounded-full border px-3 py-1 text-base font-medium outline-none focus:ring-2 focus:ring-primary/50",
-        statusSelectClass[value],
-      )}
-    >
-      {PROJECT_STATUSES.map((s) => (
-        <option key={s} value={s}>
-          {s}
-        </option>
-      ))}
-    </select>
+    <div className="relative mt-1 inline-block w-full max-w-[11.5rem]">
+      <select
+        value={value}
+        aria-label="Project status"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onChange={(e) => onChange(e.target.value as ProjectStatus)}
+        className={cn(
+          "w-full cursor-pointer appearance-none rounded-full border py-1 pl-3 pr-7 text-base font-medium outline-none focus:ring-2 focus:ring-primary/50",
+          statusSelectClass[value],
+        )}
+      >
+        {PROJECT_STATUSES.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        aria-hidden
+        className={cn("pointer-events-none absolute right-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2", chevronTone)}
+      />
+    </div>
   );
 }
 
