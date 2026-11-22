@@ -7,6 +7,7 @@ import {
   initialProjects,
   previousUploadedIfcVersion,
   pruneIfcVersionsWithoutFiles,
+  pruneToMaxUploadedIfcVersions,
   resetProjectToDefaults,
   setIfcVersionModelStats,
   storeProjectCostFile,
@@ -32,6 +33,42 @@ describe("IFC versions", () => {
     ]);
     expect(v2.activeIfcVersion).toBe(2);
     expect(v2.ifcVersions.every((v) => v.file)).toBe(true);
+  });
+
+  it("keeps only the latest two uploads when a third is added", () => {
+    let project = appendIfcVersion(initialProjects()[0]!, new File(["1"], "a.ifc"));
+    project = appendIfcVersion(project, new File(["2"], "b.ifc"));
+    project = appendIfcVersion(project, new File(["3"], "c.ifc"));
+    expect(project.ifcVersions.map((v) => v.version)).toEqual([2, 3]);
+    expect(project.ifcVersions.map((v) => v.name)).toEqual(["b.ifc", "c.ifc"]);
+    expect(project.activeIfcVersion).toBe(3);
+  });
+
+  it("prunes legacy workspaces with more than two stored versions", () => {
+    let project = initialProjects()[0]!;
+    for (let i = 1; i <= 4; i++) {
+      project = {
+        ...project,
+        ifcVersions: [
+          ...project.ifcVersions,
+          {
+            version: i,
+            name: `v${i}.ifc`,
+            sizeLabel: "1 KB",
+            uploadedAt: "today",
+            file: new File([String(i)], `v${i}.ifc`),
+            elementCount: null,
+            ifcWallCount: null,
+            buildingAreaM2: null,
+          },
+        ],
+        activeIfcVersion: i,
+        ifc: `v${i}.ifc`,
+      };
+    }
+    const pruned = pruneToMaxUploadedIfcVersions(project);
+    expect(pruned.ifcVersions.map((v) => v.version)).toEqual([3, 4]);
+    expect(pruned.activeIfcVersion).toBe(4);
   });
 
   it("drops placeholder versions without a file on append", () => {

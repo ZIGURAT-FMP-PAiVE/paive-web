@@ -309,7 +309,9 @@ function Workflow({
     if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
     const version = (uploadedIfcVersions(project).at(-1)?.version ?? 0) + 1;
     onStoreIfc(f);
-    toast.success(`IFC model stored as ${ifcVersionLabel(version)}`, { description: `${f.name} · previous versions stay on this project` });
+    toast.success(`IFC model stored as ${ifcVersionLabel(version)}`, {
+      description: `${f.name} · only the last two versions are kept per project`,
+    });
   };
 
   return (
@@ -324,7 +326,7 @@ function Workflow({
         <section>
           <SectionTitle
             variant="workflow"
-            sub="Each upload is kept as the next version (v01, v02, …). Only files you upload are stored."
+            sub="Each upload becomes the next version (v01, v02, …). Only the latest two IFC files are kept per project in this browser."
           >
             1. Upload IFC Model
           </SectionTitle>

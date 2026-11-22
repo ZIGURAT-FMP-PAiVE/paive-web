@@ -1,7 +1,13 @@
 import type { CostRow } from "./costFile";
 import type { PaiveLogEntry } from "./paive/types";
 import type { IfcVersion, Project, ProjectConfig, ProjectCostData } from "./projects";
-import { initialProjects, pruneIfcVersionsWithoutFiles, uploadedIfcVersions } from "./projects";
+import {
+  initialProjects,
+  MAX_STORED_IFC_VERSIONS,
+  pruneIfcVersionsWithoutFiles,
+  pruneToMaxUploadedIfcVersions,
+  uploadedIfcVersions,
+} from "./projects";
 
 const DB_NAME = "paive-web";
 const DB_VERSION = 1;
@@ -204,6 +210,15 @@ export async function deleteProjectIfcFiles(projectId: string): Promise<void> {
   if (changed) saveFileManifest(manifest);
 }
 
+/** Trim workspace metadata before hydration so dropped versions are not read from IndexedDB. */
+function retainLatestPersistedIfcVersions(p: PersistedProject): PersistedProject {
+  const uploaded = p.ifcVersions
+    .filter((v) => v.hasFile)
+    .sort((a, b) => a.version - b.version);
+  if (uploaded.length <= MAX_STORED_IFC_VERSIONS) return p;
+  return { ...p, ifcVersions: uploaded.slice(-MAX_STORED_IFC_VERSIONS) };
+}
+
 function serializeIfcVersion(v: IfcVersion): PersistedIfcVersion {
   const { file, ...rest } = v;
   return {
@@ -312,7 +327,11 @@ export async function loadWorkspace(): Promise<{
   try {
     const snapshot = JSON.parse(raw) as WorkspaceSnapshot;
     if (!snapshot.projects?.length) return null;
-    const projects = (await Promise.all(snapshot.projects.map(hydrateProject))).map(pruneIfcVersionsWithoutFiles);
+    const projects = (
+      await Promise.all(snapshot.projects.map(retainLatestPersistedIfcVersions).map(hydrateProject))
+    )
+      .map(pruneIfcVersionsWithoutFiles)
+      .map(pruneToMaxUploadedIfcVersions);
     const projectBaselines = Object.fromEntries(
       Object.entries(snapshot.projectBaselines ?? {}).map(([id, b]) => [id, cloneBaseline(b)]),
     );

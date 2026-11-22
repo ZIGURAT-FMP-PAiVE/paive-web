@@ -51,6 +51,9 @@ export function formatIfcDate(date: Date): string {
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/** Uploaded IFC files kept in browser storage (IndexedDB) per project. */
+export const MAX_STORED_IFC_VERSIONS = 2;
+
 export function uploadedIfcVersions(project: Project): IfcVersion[] {
   return project.ifcVersions.filter((v) => v.file != null);
 }
@@ -143,6 +146,27 @@ export function pruneIfcVersionsWithoutFiles(project: Project): Project {
   };
 }
 
+/** Keep only the latest `max` uploads (by version number). Drops older blobs on next sync. */
+export function pruneToMaxUploadedIfcVersions(
+  project: Project,
+  max = MAX_STORED_IFC_VERSIONS,
+): Project {
+  const uploaded = [...uploadedIfcVersions(project)].sort((a, b) => a.version - b.version);
+  if (uploaded.length <= max) return project;
+
+  const kept = uploaded.slice(-max);
+  const activeStillThere = kept.some((v) => v.version === project.activeIfcVersion);
+  const nextActive = activeStillThere ? project.activeIfcVersion : kept.at(-1)!.version;
+  const activeEntry = kept.find((v) => v.version === nextActive) ?? kept.at(-1)!;
+
+  return {
+    ...project,
+    ifcVersions: kept,
+    activeIfcVersion: nextActive,
+    ifc: activeEntry.name,
+  };
+}
+
 export function appendIfcVersion(project: Project, file: File, uploadedAt = formatIfcDate(new Date())): Project {
   const uploaded = uploadedIfcVersions(project);
   const version = (uploaded.at(-1)?.version ?? 0) + 1;
@@ -156,12 +180,12 @@ export function appendIfcVersion(project: Project, file: File, uploadedAt = form
     ifcWallCount: null,
     buildingAreaM2: null,
   };
-  return {
+  return pruneToMaxUploadedIfcVersions({
     ...project,
     ifc: file.name,
     ifcVersions: [...uploaded, entry],
     activeIfcVersion: version,
-  };
+  });
 }
 
 const emptyIfc: Pick<Project, "ifc" | "ifcVersions" | "activeIfcVersion"> = {
