@@ -40,7 +40,6 @@ import {
   PaiveLogTable,
   PaiveWallsTable,
   VeReportBlock,
-  VeRunSteps,
   WallFunctionChips,
 } from "@/components/paive/PaiveRunUI";
 import { decide, getLog, getRun, paiveRun } from "@/lib/paive/fakeBackend";
@@ -262,14 +261,6 @@ function Workflow({
                   );
                 })}
               </ul>
-            )}
-            {fixtureRun && (
-              <Card className="mt-6 border-primary/20 bg-primary/5">
-                <SectionTitle sub="Fixture back end (run → get_run). Status from the uploaded file name.">
-                  1b. VE pipeline
-                </SectionTitle>
-                <VeRunSteps run={fixtureRun} />
-              </Card>
             )}
             <div className="mt-5 flex flex-wrap items-center gap-4">
               <button onClick={() => costInput.current?.click()} className="flex items-center gap-2 rounded-xl border border-secondary px-5 py-3 font-medium text-foreground hover:bg-secondary/15">
