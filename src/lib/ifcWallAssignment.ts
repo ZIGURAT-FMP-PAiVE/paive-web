@@ -7,6 +7,18 @@ export type FootprintBox = { minX: number; maxX: number; minZ: number; maxZ: num
 
 export type WallCenter = { id: string; x: number; z: number };
 
+type IfcIdList = { size: () => number; get: (index: number) => number };
+
+/** Union express IDs for all provided IFC wall entity type codes (IfcWall and subtypes). */
+export function collectIfcWallExpressIds(getIdsForType: (typeCode: number) => IfcIdList, wallTypeCodes: number[]): string[] {
+  const seen = new Set<string>();
+  for (const code of wallTypeCodes) {
+    const ids = getIdsForType(code);
+    for (let i = 0; i < ids.size(); i++) seen.add(String(ids.get(i)));
+  }
+  return [...seen];
+}
+
 export function isExternalWall(center: WallCenter, box: FootprintBox, marginRatio = 0.12): boolean {
   const spanX = box.maxX - box.minX;
   const spanZ = box.maxZ - box.minZ;

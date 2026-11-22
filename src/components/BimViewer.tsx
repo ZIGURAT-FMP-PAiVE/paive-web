@@ -1,5 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { assignWallsByCardinalCycle, type FootprintBox, type WallCenter } from "@/lib/ifcWallAssignment";
+import {
+  assignWallsByCardinalCycle,
+  collectIfcWallExpressIds,
+  type FootprintBox,
+  type WallCenter,
+} from "@/lib/ifcWallAssignment";
 import { footprintAreaM2, measureBuildingAreaM2 } from "@/lib/ifcBuildingArea";
 import { wallColourEmissiveHex, wallColourHex } from "@/lib/veSemantics";
 
@@ -175,6 +180,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
       add("D-11", 0xb45309, [1.4, 2.4, 0.4], [-3, 1.4, 6]);
 
       const wallPool: string[] = [];
+      const ifcWallIdSet = new Set<string>();
       const wallCenterCache = new Map<string, WallCenter>();
       const footprintBox: FootprintBox = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
       const affectedIdToColour = new Map<string, string>();
@@ -211,7 +217,10 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
 
       const resolveExpressId = (selectionKey: string | null): string | null => {
         if (!selectionKey) return null;
-        return guidToExpressId.get(selectionKey) ?? (/^\d+$/.test(selectionKey) ? selectionKey : null);
+        const expressId = guidToExpressId.get(selectionKey) ?? (/^\d+$/.test(selectionKey) ? selectionKey : null);
+        if (!expressId) return null;
+        if (ifcWallIdSet.size > 0 && !ifcWallIdSet.has(expressId)) return null;
+        return expressId;
       };
 
       const rebuildAffectedHighlights = () => {
@@ -287,6 +296,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         }
         meshes.length = 0;
         wallPool.length = 0;
+        ifcWallIdSet.clear();
         wallCenterCache.clear();
         affectedIdToColour.clear();
         guidToExpressId.clear();
@@ -389,15 +399,22 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
           camera.position.copy(center).add(new THREE.Vector3(size * 0.6, size * 0.45, size * 0.6));
           saveHomeFromScene();
           grid.position.y = box.min.y;
-          const wallIds = api.GetLineIDsWithType(modelID, WebIFC.IFCWALL);
+          const wallTypeCodes = [
+            WebIFC.IFCWALL,
+            (WebIFC as { IFCWALLSTANDARDCASE?: number }).IFCWALLSTANDARDCASE,
+            (WebIFC as { IFCWALLELEMENTEDCASE?: number }).IFCWALLELEMENTEDCASE,
+          ].filter((code): code is number => typeof code === "number");
+          const meshExpressIds = new Set(newMeshes.map((m) => String(m.userData["id"])));
+          const ifcWallIds = collectIfcWallExpressIds((type) => api.GetLineIDsWithType(modelID, type), wallTypeCodes).filter(
+            (id) => meshExpressIds.has(id),
+          );
           wallPool.length = 0;
-          for (let wi = 0; wi < wallIds.size(); wi++) wallPool.push(String(wallIds.get(wi)));
-          if (wallPool.length === 0) {
-            for (const m of newMeshes) {
-              const id = String(m.userData["id"]);
-              if (!wallPool.includes(id)) wallPool.push(id);
-            }
+          ifcWallIdSet.clear();
+          for (const id of ifcWallIds) {
+            wallPool.push(id);
+            ifcWallIdSet.add(id);
           }
+          const wallIds = api.GetLineIDsWithType(modelID, WebIFC.IFCWALL);
           rebuildAffectedHighlights();
           const activeSelection = selectedIdRef.current;
           paintMeshes(activeSelection);
