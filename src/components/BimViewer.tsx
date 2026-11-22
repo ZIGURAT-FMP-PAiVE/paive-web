@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { footprintAreaM2, measureBuildingAreaM2 } from "@/lib/ifcBuildingArea";
+import { wallColourEmissiveHex, wallColourHex } from "@/lib/veSemantics";
 
 export type BimElement = { id: string; type: string };
 
@@ -11,13 +12,27 @@ export type BimViewerHandle = {
   resetView: () => void;
 };
 
+export type AffectedWallHighlight = { colour: string };
+
 type Props = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   file?: File | null;
   onInspect?: (info: IfcInfo | null) => void;
   onModelLoaded?: (stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
+  /** Map random IFC walls to PAiVE wall health colours (same count as table). */
+  affectedWalls?: AffectedWallHighlight[];
 };
+
+function pickRandomIds(ids: string[], count: number): string[] {
+  if (count <= 0 || ids.length === 0) return [];
+  const pool = [...ids];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+  }
+  return pool.slice(0, Math.min(count, pool.length));
+}
 
 const val = (x: unknown): string => {
   if (x == null) return "";
@@ -28,7 +43,7 @@ const val = (x: unknown): string => {
 
 // Procedural demo model. Swap for That Open Engine / IFC.js loader later.
 export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
-  { selectedId, onSelect, file, onInspect, onModelLoaded },
+  { selectedId, onSelect, file, onInspect, onModelLoaded, affectedWalls },
   ref,
 ) {
   const viewApiRef = useRef<{ fitView: () => void; resetView: () => void } | null>(null);
@@ -51,7 +66,10 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
   const viewerReadyRef = useRef(false);
   const [status, setStatus] = useState<string | null>(null);
   const mountRef = useRef<HTMLDivElement>(null);
-  const selectRef = useRef<(id: string | null) => void>(() => {});
+  const paintMeshesRef = useRef<(id: string | null) => void>(() => {});
+  const rebuildAffectedRef = useRef<() => void>(() => {});
+  const affectedWallsRef = useRef(affectedWalls);
+  affectedWallsRef.current = affectedWalls;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
@@ -161,15 +179,34 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
       add("SLAB-ROOF", 0x475569, [16.4, 0.4, 12.4], [0, 8, 0]);
       add("D-11", 0xb45309, [1.4, 2.4, 0.4], [-3, 1.4, 6]);
 
-      const highlight = (id: string | null) => {
+      const wallPool: string[] = [];
+      const affectedIdToColour = new Map<string, string>();
+      const rebuildAffectedHighlights = () => {
+        affectedIdToColour.clear();
+        const specs = affectedWallsRef.current;
+        if (!specs?.length || !wallPool.length) return;
+        const picked = pickRandomIds(wallPool, specs.length);
+        picked.forEach((id, i) => affectedIdToColour.set(id, specs[i]!.colour));
+      };
+      const paintMeshes = (focusId: string | null) => {
         meshes.forEach((m) => {
           const mat = m.material as InstanceType<typeof THREE.MeshStandardMaterial>;
-          const on = m.userData['id'] === id;
-          mat.color.setHex(on ? 0x00b3ff : m.userData['base']);
-          mat.emissive.setHex(on ? 0x003a55 : 0x000000);
+          const id = m.userData["id"] as string;
+          const veCol = affectedIdToColour.get(id);
+          if (focusId && id === focusId) {
+            mat.color.setHex(0x00b3ff);
+            mat.emissive.setHex(0x003a55);
+          } else if (veCol) {
+            mat.color.setHex(wallColourHex(veCol));
+            mat.emissive.setHex(wallColourEmissiveHex(veCol));
+          } else {
+            mat.color.setHex(m.userData["base"] as number);
+            mat.emissive.setHex(0x000000);
+          }
         });
       };
-      selectRef.current = highlight;
+      rebuildAffectedRef.current = rebuildAffectedHighlights;
+      paintMeshesRef.current = paintMeshes;
 
       const demoGroup = [...meshes];
       let ifcGroup: InstanceType<typeof THREE.Group> | null = null;
@@ -180,6 +217,8 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
           ifcGroup = null;
         }
         meshes.length = 0;
+        wallPool.length = 0;
+        affectedIdToColour.clear();
         inspectRef.current = (sid) => {
           if (!sid) onInspectRef.current?.(null);
         };
@@ -279,6 +318,19 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
           saveHomeFromScene();
           grid.position.y = box.min.y;
           const wallIds = api.GetLineIDsWithType(modelID, WebIFC.IFCWALL);
+          wallPool.length = 0;
+          for (let wi = 0; wi < wallIds.size(); wi++) wallPool.push(String(wallIds.get(wi)));
+          if (wallPool.length === 0) {
+            for (const m of newMeshes) {
+              const id = String(m.userData["id"]);
+              if (!wallPool.includes(id)) wallPool.push(id);
+            }
+          }
+          rebuildAffectedHighlights();
+          const firstHighlight = affectedIdToColour.keys().next().value as string | undefined;
+          const pick = firstHighlight ?? String(newMeshes[0]!.userData["id"]);
+          paintMeshes(pick);
+          onSelectRef.current(pick);
           const measured = measureBuildingAreaM2(api, modelID, WebIFC.IFCQUANTITYAREA);
           const buildingAreaM2 = measured ?? footprintAreaM2(box);
           setStatus(null);
@@ -287,7 +339,6 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
             ifcWallCount: wallIds.size(),
             buildingAreaM2,
           });
-          onSelectRef.current(String(newMeshes[0]!.userData['id']));
           fitCanvas();
         } catch (err) {
           console.error(err);
@@ -322,7 +373,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
       let raf = 0;
       const loop = () => { controls.update(); renderer.render(scene, camera); raf = requestAnimationFrame(loop); };
       loop();
-      highlight(selectedId);
+      paintMeshes(selectedId);
       saveHomeFromScene();
       cleanup = () => {
         viewApiRef.current = null;
@@ -341,7 +392,14 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { selectRef.current(selectedId); inspectRef.current(selectedId); }, [selectedId]);
+  useEffect(() => {
+    paintMeshesRef.current(selectedId);
+    inspectRef.current(selectedId);
+  }, [selectedId]);
+  useEffect(() => {
+    rebuildAffectedRef.current();
+    paintMeshesRef.current(selectedId);
+  }, [affectedWalls, selectedId]);
   useEffect(() => {
     if (!file) {
       pendingRef.current = null;

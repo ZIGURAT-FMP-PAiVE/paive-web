@@ -59,6 +59,21 @@ export function wallHealthDotClass(colour: string): string {
   return "bg-muted-foreground/60";
 }
 
+/** Three.js mesh tint for fixture wall health colours. */
+export function wallColourHex(colour: string): number {
+  if (colour === "red") return 0xdc2626;
+  if (colour === "amber") return 0xd97706;
+  if (colour === "green") return 0x16a34a;
+  return 0x64748b;
+}
+
+export function wallColourEmissiveHex(colour: string): number {
+  if (colour === "red") return 0x450a0a;
+  if (colour === "amber") return 0x451a03;
+  if (colour === "green") return 0x052e16;
+  return 0x0f172a;
+}
+
 /** IFC version timeline: current = primary, earlier stored = success. */
 export function ifcVersionDotClass(isActive: boolean) {
   return isActive ? rankAccent(2).dot : rankAccent(1).dot;

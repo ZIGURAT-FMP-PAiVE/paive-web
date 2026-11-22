@@ -519,6 +519,7 @@ function Workflow({
                       (w.guid === viewerSelection || String(w.guid) === viewerSelection)),
                 ) ?? null
               }
+              affectedWalls={fixtureRun?.walls?.map((w) => ({ colour: w.colour }))}
             />
           </div>
         </section>
@@ -865,6 +866,7 @@ function Index() {
         setProjects(ws.projects);
         setProjectBaselines(ws.projectBaselines);
         setActiveId(ws.activeId);
+        setDecisionLogsByProject(ws.decisionLogsByProject);
       }
       setHydrated(true);
     });
@@ -876,10 +878,10 @@ function Index() {
   useEffect(() => {
     if (!hydrated) return;
     const timer = window.setTimeout(() => {
-      void saveWorkspace(projects, projectBaselines, activeId);
+      void saveWorkspace(projects, projectBaselines, activeId, decisionLogsByProject);
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [projects, projectBaselines, activeId, hydrated]);
+  }, [projects, projectBaselines, activeId, decisionLogsByProject, hydrated]);
 
   const updateConfig = (config: Project["config"]) => {
     setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, config } : p)));
@@ -959,6 +961,10 @@ function Index() {
     setProjects(remaining);
     setProjectBaselines((b) => {
       const { [id]: _removed, ...rest } = b;
+      return rest;
+    });
+    setDecisionLogsByProject((logs) => {
+      const { [id]: _removed, ...rest } = logs;
       return rest;
     });
     if (activeId === id) setActiveId(remaining[0]!.id);

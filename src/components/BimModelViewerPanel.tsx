@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { PaiveWall } from "@/lib/paive/types";
+import type { AffectedWallHighlight } from "@/components/BimViewer";
 import { cn } from "@/lib/utils";
 
 function PropGrid({ rows }: { rows: [string, string][] }) {
@@ -164,6 +165,7 @@ export function BimModelViewerPanel({
   onModelLoaded,
   info,
   paiveWall,
+  affectedWalls,
 }: {
   ifcFile: File | null;
   projectId: string;
@@ -174,6 +176,7 @@ export function BimModelViewerPanel({
   onModelLoaded: (stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
   info: IfcInfo | null;
   paiveWall?: PaiveWall | null;
+  affectedWalls?: AffectedWallHighlight[];
 }) {
   const viewerRef = useRef<BimViewerHandle>(null);
 
@@ -225,6 +228,7 @@ export function BimModelViewerPanel({
                   file={ifcFile}
                   onInspect={onInspect}
                   onModelLoaded={onModelLoaded}
+                  affectedWalls={affectedWalls}
                 />
               </div>
               <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md bg-black/55 px-2.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm">

@@ -1,4 +1,5 @@
 import type { CostRow } from "./costFile";
+import type { PaiveLogEntry } from "./paive/types";
 import type { IfcVersion, Project, ProjectConfig, ProjectCostData } from "./projects";
 import { initialProjects, pruneIfcVersionsWithoutFiles, uploadedIfcVersions } from "./projects";
 
@@ -52,6 +53,7 @@ type WorkspaceSnapshot = {
   projects: PersistedProject[];
   projectBaselines: Record<string, PersistedBaseline>;
   activeId: string;
+  decisionLogsByProject?: Record<string, PaiveLogEntry[]>;
 };
 
 type StoredBlob = { blob: Blob; name: string; mimeType: string };
@@ -279,7 +281,12 @@ function cloneBaseline(b: PersistedBaseline): ProjectBaseline {
   };
 }
 
-export async function saveWorkspace(projects: Project[], projectBaselines: Record<string, ProjectBaseline>, activeId: string): Promise<void> {
+export async function saveWorkspace(
+  projects: Project[],
+  projectBaselines: Record<string, ProjectBaseline>,
+  activeId: string,
+  decisionLogsByProject: Record<string, PaiveLogEntry[]> = {},
+): Promise<void> {
   if (!isBrowser()) return;
   const snapshot: WorkspaceSnapshot = {
     projects: projects.map(serializeProject),
@@ -287,6 +294,7 @@ export async function saveWorkspace(projects: Project[], projectBaselines: Recor
       Object.entries(projectBaselines).map(([id, b]) => [id, serializeBaseline(b)]),
     ),
     activeId,
+    decisionLogsByProject,
   };
   localStorage.setItem(WORKSPACE_KEY, JSON.stringify(snapshot));
   await syncProjectFiles(projects);
@@ -296,6 +304,7 @@ export async function loadWorkspace(): Promise<{
   projects: Project[];
   projectBaselines: Record<string, ProjectBaseline>;
   activeId: string;
+  decisionLogsByProject: Record<string, PaiveLogEntry[]>;
 } | null> {
   if (!isBrowser()) return null;
   const raw = localStorage.getItem(WORKSPACE_KEY);
@@ -307,7 +316,12 @@ export async function loadWorkspace(): Promise<{
     const projectBaselines = Object.fromEntries(
       Object.entries(snapshot.projectBaselines ?? {}).map(([id, b]) => [id, cloneBaseline(b)]),
     );
-    return { projects, projectBaselines, activeId: snapshot.activeId || projects[0]!.id };
+    return {
+      projects,
+      projectBaselines,
+      activeId: snapshot.activeId || projects[0]!.id,
+      decisionLogsByProject: snapshot.decisionLogsByProject ?? {},
+    };
   } catch {
     return null;
   }
