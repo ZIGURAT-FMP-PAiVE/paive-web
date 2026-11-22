@@ -6,27 +6,89 @@ import {
   ifcVersionLabel,
   initialProjects,
   previousUploadedIfcVersion,
+  pruneIfcVersionsWithoutFiles,
   resetProjectToDefaults,
   setIfcVersionModelStats,
   storeProjectCostFile,
 } from "./projects";
 
 describe("IFC versions", () => {
-  it("keeps the current model as version 1 and stores the next upload as version 2", () => {
+  it("starts with no stored versions until a file is uploaded", () => {
     const project = initialProjects()[0]!;
-    expect(project.ifcVersions.map((v) => v.version)).toEqual([1]);
-    expect(project.activeIfcVersion).toBe(1);
+    expect(project.ifcVersions).toEqual([]);
+    expect(project.activeIfcVersion).toBe(0);
+  });
 
-    const stored = appendIfcVersion(project, new File(["IFC"], "wall_move.ifc"), "19 Nov 2026");
+  it("stores the first upload as v01 and the next as v02", () => {
+    const project = initialProjects()[0]!;
+    const v1 = appendIfcVersion(project, new File(["IFC"], "wall_a.ifc"), "19 Nov 2026");
+    expect(v1.ifcVersions.map((v) => `${ifcVersionLabel(v.version)} ${v.name}`)).toEqual(["v01 wall_a.ifc"]);
+    expect(v1.activeIfcVersion).toBe(1);
 
-    expect(stored.ifcVersions.map((v) => `${ifcVersionLabel(v.version)} ${v.name}`)).toEqual([
-      "v01 verona_hospital_v03.ifc",
-      "v02 wall_move.ifc",
+    const v2 = appendIfcVersion(v1, new File(["IFC"], "wall_b.ifc"), "20 Nov 2026");
+    expect(v2.ifcVersions.map((v) => `${ifcVersionLabel(v.version)} ${v.name}`)).toEqual([
+      "v01 wall_a.ifc",
+      "v02 wall_b.ifc",
     ]);
-    expect(stored.activeIfcVersion).toBe(2);
-    expect(stored.ifcVersions[0]!.file).toBeNull();
-    expect(stored.ifcVersions[1]!.file?.name).toBe("wall_move.ifc");
-    expect(project.ifcVersions).toHaveLength(1);
+    expect(v2.activeIfcVersion).toBe(2);
+    expect(v2.ifcVersions.every((v) => v.file)).toBe(true);
+  });
+
+  it("drops placeholder versions without a file on append", () => {
+    const withPlaceholder = {
+      ...initialProjects()[0]!,
+      ifc: "demo.ifc",
+      activeIfcVersion: 1,
+      ifcVersions: [
+        {
+          version: 1,
+          name: "demo.ifc",
+          sizeLabel: "—",
+          uploadedAt: "01 Jan 2026",
+          file: null,
+          elementCount: null,
+          ifcWallCount: null,
+          buildingAreaM2: null,
+        },
+      ],
+    };
+    const stored = appendIfcVersion(withPlaceholder, new File(["IFC"], "real.ifc"));
+    expect(stored.ifcVersions).toHaveLength(1);
+    expect(stored.ifcVersions[0]!.name).toBe("real.ifc");
+    expect(stored.activeIfcVersion).toBe(1);
+  });
+
+  it("prunes file-less versions when loading legacy workspace data", () => {
+    const legacy = {
+      ...initialProjects()[0]!,
+      ifcVersions: [
+        {
+          version: 1,
+          name: "placeholder.ifc",
+          sizeLabel: "—",
+          uploadedAt: "old",
+          file: null,
+          elementCount: null,
+          ifcWallCount: null,
+          buildingAreaM2: null,
+        },
+        {
+          version: 2,
+          name: "real.ifc",
+          sizeLabel: "1.0 MB",
+          uploadedAt: "today",
+          file: new File(["x"], "real.ifc"),
+          elementCount: null,
+          ifcWallCount: null,
+          buildingAreaM2: null,
+        },
+      ],
+      activeIfcVersion: 2,
+    };
+    const pruned = pruneIfcVersionsWithoutFiles(legacy);
+    expect(pruned.ifcVersions).toHaveLength(1);
+    expect(pruned.ifcVersions[0]!.version).toBe(2);
+    expect(pruned.activeIfcVersion).toBe(2);
   });
 });
 
@@ -62,8 +124,8 @@ describe("IFC version compare", () => {
     project = appendIfcVersion(project, new File(["b"], "v2.ifc"), "d2");
     const current = activeIfcVersion(project)!;
     const prev = previousUploadedIfcVersion(project, current);
-    expect(current.version).toBe(3);
-    expect(prev?.version).toBe(2);
+    expect(current.version).toBe(2);
+    expect(prev?.version).toBe(1);
     expect(prev?.name).toBe("v1.ifc");
   });
 });

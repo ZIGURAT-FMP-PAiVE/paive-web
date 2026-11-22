@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from "react";
-import { Briefcase, ShieldCheck, Activity, Database, Save, RotateCcw, FileSpreadsheet, CheckCircle2 } from "lucide-react";
+import { Briefcase, ShieldCheck, Activity, Database, Save, RotateCcw, FileSpreadsheet, CheckCircle2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { STAGES, type ProjectConfig, type ProjectCostData, type Op } from "@/lib/projects";
 import { TruncatedText } from "@/components/TruncatedText";
@@ -33,6 +33,7 @@ export function ProjectConfigPanel({
   onCostDataChange,
   onSave,
   onResetDefaults,
+  onDeleteProject,
 }: {
   config: ProjectConfig;
   baseline: ProjectConfig;
@@ -43,6 +44,7 @@ export function ProjectConfigPanel({
   onCostDataChange: (costData: ProjectCostData | null) => void;
   onSave: () => void;
   onResetDefaults: () => void;
+  onDeleteProject: () => void;
 }) {
   const costInput = useRef<HTMLInputElement>(null);
   const set = <K extends keyof ProjectConfig>(k: K, v: ProjectConfig[K]) => onChange({ ...config, [k]: v });
@@ -143,7 +145,16 @@ export function ProjectConfigPanel({
         )}
       </Block>
 
-      <div className="flex flex-wrap justify-end gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onDeleteProject}
+          className="flex items-center gap-2 rounded-xl border border-destructive/50 px-6 py-3 font-medium text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="h-5 w-5" />
+          Delete project
+        </button>
+        <div className="flex flex-wrap justify-end gap-3">
         <button
           type="button"
           onClick={onResetDefaults}
@@ -165,6 +176,7 @@ export function ProjectConfigPanel({
           Undo unsaved changes
         </button>
         <button onClick={() => { if (!config.name.trim()) { toast.error("Project name is required"); return; } onSave(); toast.success("Configuration updated", { description: config.name }); }} className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90"><Save className="h-5 w-5" />Save Configuration</button>
+        </div>
       </div>
     </div>
   );

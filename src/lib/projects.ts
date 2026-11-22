@@ -51,8 +51,13 @@ export function formatIfcDate(date: Date): string {
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+export function uploadedIfcVersions(project: Project): IfcVersion[] {
+  return project.ifcVersions.filter((v) => v.file != null);
+}
+
 export function activeIfcVersion(project: Project): IfcVersion | undefined {
-  return project.ifcVersions.find((v) => v.version === project.activeIfcVersion) ?? project.ifcVersions.at(-1);
+  const uploaded = uploadedIfcVersions(project);
+  return uploaded.find((v) => v.version === project.activeIfcVersion) ?? uploaded.at(-1);
 }
 
 /** Latest uploaded IFC file before the active version (for version-to-version change detection). */
@@ -125,8 +130,22 @@ export function setIfcVersionModelStats(
   };
 }
 
+export function pruneIfcVersionsWithoutFiles(project: Project): Project {
+  const uploaded = uploadedIfcVersions(project);
+  if (uploaded.length === project.ifcVersions.length) return project;
+  const activeStillThere = uploaded.some((v) => v.version === project.activeIfcVersion);
+  const activeIfcVersion = activeStillThere ? project.activeIfcVersion : (uploaded.at(-1)?.version ?? 0);
+  return {
+    ...project,
+    ifcVersions: uploaded,
+    activeIfcVersion,
+    ifc: uploaded.at(-1)?.name ?? "",
+  };
+}
+
 export function appendIfcVersion(project: Project, file: File, uploadedAt = formatIfcDate(new Date())): Project {
-  const version = (project.ifcVersions.at(-1)?.version ?? 0) + 1;
+  const uploaded = uploadedIfcVersions(project);
+  const version = (uploaded.at(-1)?.version ?? 0) + 1;
   const entry: IfcVersion = {
     version,
     name: file.name,
@@ -140,18 +159,16 @@ export function appendIfcVersion(project: Project, file: File, uploadedAt = form
   return {
     ...project,
     ifc: file.name,
-    ifcVersions: [...project.ifcVersions, entry],
+    ifcVersions: [...uploaded, entry],
     activeIfcVersion: version,
   };
 }
 
-function baselineIfc(name: string, uploadedAt: string): Pick<Project, "ifc" | "ifcVersions" | "activeIfcVersion"> {
-  return {
-    ifc: name,
-    activeIfcVersion: 1,
-    ifcVersions: [{ version: 1, name, sizeLabel: "—", uploadedAt, file: null, elementCount: null, ifcWallCount: null, buildingAreaM2: null }],
-  };
-}
+const emptyIfc: Pick<Project, "ifc" | "ifcVersions" | "activeIfcVersion"> = {
+  ifc: "",
+  activeIfcVersion: 0,
+  ifcVersions: [],
+};
 
 export const STAGES = ["Concept", "Schematic Design", "Design Development", "Construction Documents", "Construction"];
 
@@ -163,11 +180,11 @@ const targets = (fire = "60"): Target[] => [
 
 export function initialProjects(): Project[] {
   return [
-    { id: "verona", code: "VH", status: "Analyzing", costData: null, ...baselineIfc("verona_hospital_v03.ifc", "12 Oct 2026"),
+    { id: "verona", code: "VH", status: "Analyzing", costData: null, ...emptyIfc,
       config: { name: "Verona Hospital", stage: "Design Development", typology: "External walls", targets: targets("90"), functionWeight: 60, costSource: "DEI Prezzario 2026 – Veneto" } },
-    { id: "milano", code: "MM", status: "On track", costData: null, ...baselineIfc("milano_medical_v02.ifc", "28 Oct 2026"),
+    { id: "milano", code: "MM", status: "On track", costData: null, ...emptyIfc,
       config: { name: "Milano Medical Center", stage: "Schematic Design", typology: "Facade systems", targets: targets("120"), functionWeight: 50, costSource: "rates_milano_Q3_2026.xlsx" } },
-    { id: "test1", code: "T1", status: "Draft", costData: null, ...baselineIfc("test_model.ifc", "01 Nov 2026"),
+    { id: "test1", code: "T1", status: "Draft", costData: null, ...emptyIfc,
       config: { name: "Test Valentina 1", stage: "Design Development", typology: "External walls", targets: targets(), functionWeight: 70, costSource: "" } },
   ];
 }

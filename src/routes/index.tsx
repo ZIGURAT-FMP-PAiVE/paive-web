@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   activeIfcVersion,
   appendIfcVersion,
+  uploadedIfcVersions,
   clearProjectIfcVersions,
   defaultProjectConfig,
   ifcVersionLabel,
@@ -29,7 +30,7 @@ import {
   type ProjectBaseline,
 } from "@/lib/projectStorage";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
-import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard, Trash2 } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TruncatedText } from "@/components/TruncatedText";
 import {
@@ -99,7 +100,7 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
 }
 
 function IfcVersionHistoryCard({ project }: { project: Project }) {
-  const uploaded = project.ifcVersions.filter((v) => v.file);
+  const uploaded = uploadedIfcVersions(project);
   return (
     <Card>
       <h3 className="mb-6 text-[18px] font-semibold">Version History</h3>
@@ -343,7 +344,7 @@ function Workflow({
   const handleIfc = (f?: File) => {
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
-    const version = (project.ifcVersions.at(-1)?.version ?? 0) + 1;
+    const version = (uploadedIfcVersions(project).at(-1)?.version ?? 0) + 1;
     onStoreIfc(f);
     toast.success(`IFC model stored as ${ifcVersionLabel(version)}`, { description: `${f.name} · previous versions stay on this project` });
   };
@@ -360,10 +361,10 @@ function Workflow({
         <section className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-              <SectionTitle sub="Each upload is kept. The model already on the project is version 1; the next file is version 2.">
+              <SectionTitle sub="Each upload is kept as the next version (v01, v02, …). Only files you upload are stored.">
                 1. Upload IFC Model
               </SectionTitle>
-              {project.ifcVersions.length > 0 && (
+              {uploadedIfcVersions(project).length > 0 && (
                 <button
                   type="button"
                   onClick={onClearIfcVersions}
@@ -386,9 +387,9 @@ function Workflow({
               <button onClick={() => ifcInput.current?.click()} className="mt-5 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90">Select IFC File</button>
               <input ref={ifcInput} type="file" accept=".ifc" hidden onChange={(e) => { handleIfc(e.target.files?.[0]); e.target.value = ""; }} />
             </div>
-            {project.ifcVersions.length > 0 && (
+            {uploadedIfcVersions(project).length > 0 && (
               <ul className="mt-5 space-y-3">
-                {project.ifcVersions.map((v) => {
+                {uploadedIfcVersions(project).map((v) => {
                   const current = v.version === project.activeIfcVersion;
                   return (
                     <li key={v.version} className={cn("flex items-center justify-between rounded-xl border p-4", current ? "border-primary bg-primary/10" : "border-border bg-background/40")}>
@@ -396,7 +397,7 @@ function Workflow({
                         <FileBox className="h-6 w-6 shrink-0 text-primary" />
                         <span className="font-semibold">{ifcVersionLabel(v.version)}</span>
                         <span className="truncate">{v.name}</span>
-                        <span className="shrink-0 text-base text-muted-foreground">{v.file ? v.sizeLabel : v.uploadedAt}</span>
+                        <span className="shrink-0 text-base text-muted-foreground">{v.sizeLabel}</span>
                       </div>
                       {current ? <Badge tone="success"><CheckCircle2 className="mr-1 h-4 w-4" />Current</Badge> : <Badge tone="muted">Stored</Badge>}
                     </li>
@@ -825,7 +826,7 @@ function Index() {
     if (!hydrated) return;
     const timer = window.setTimeout(() => {
       void saveWorkspace(projects, projectBaselines, activeId);
-    }, 400);
+    }, 900);
     return () => window.clearTimeout(timer);
   }, [projects, projectBaselines, activeId, hydrated]);
 
@@ -891,6 +892,28 @@ function Index() {
     toast.success("IFC versions cleared", { description: "Next upload will start again at version 01" });
   };
 
+  const deleteProject = async (id: string) => {
+    if (projects.length <= 1) {
+      toast.error("You must keep at least one project");
+      return;
+    }
+    const target = projects.find((p) => p.id === id);
+    const label = target?.config.name?.trim() || "this project";
+    const ok = window.confirm(
+      `Delete “${label}” permanently?\n\nStored IFC versions, cost files, and configuration for this project will be removed.`,
+    );
+    if (!ok) return;
+    await deleteAllProjectFiles(id);
+    const remaining = projects.filter((p) => p.id !== id);
+    setProjects(remaining);
+    setProjectBaselines((b) => {
+      const { [id]: _removed, ...rest } = b;
+      return rest;
+    });
+    if (activeId === id) setActiveId(remaining[0]!.id);
+    toast.success("Project deleted", { description: label });
+  };
+
   if (!hydrated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-lg text-muted-foreground">
@@ -936,17 +959,46 @@ function Index() {
           <ul className="space-y-2">
             {projects.map((p) => (
               <li key={p.id}>
-                <button onClick={() => setActiveId(p.id)} title={p.config.name}
-                  className={cn("flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors", p.id === active.id ? "border-primary bg-primary/10" : "border-transparent hover:bg-accent")}>
-                  <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-lg font-bold", p.id === active.id ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>{p.code}</span>
-                  {open && (
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{p.config.name}</span>
-                      <span className="block truncate text-base text-muted-foreground">{p.config.stage}</span>
-                      <ProjectStatusSelect value={p.status} onChange={(status) => updateProjectStatus(p.id, status)} />
-                    </span>
+                <div
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-xl border p-3 transition-colors",
+                    p.id === active.id ? "border-primary bg-primary/10" : "border-transparent hover:bg-accent",
                   )}
-                </button>
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveId(p.id)}
+                    title={p.config.name}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg font-bold",
+                        p.id === active.id ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                      )}
+                    >
+                      {p.code}
+                    </span>
+                    {open && (
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">{p.config.name}</span>
+                        <span className="block truncate text-base text-muted-foreground">{p.config.stage}</span>
+                        <ProjectStatusSelect value={p.status} onChange={(status) => updateProjectStatus(p.id, status)} />
+                      </span>
+                    )}
+                  </button>
+                  {open && projects.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => void deleteProject(p.id)}
+                      title={`Delete ${p.config.name}`}
+                      aria-label={`Delete ${p.config.name}`}
+                      className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
             <li>
@@ -982,6 +1034,7 @@ function Index() {
                 onCostDataChange={updateCostData}
                 onSave={() => setProjectBaselines((b) => ({ ...b, [active.id]: projectBaseline(active) }))}
                 onResetDefaults={() => void resetActiveProjectDefaults()}
+                onDeleteProject={() => void deleteProject(active.id)}
               />
             </div>
           </div>
