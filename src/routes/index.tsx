@@ -348,7 +348,7 @@ function Workflow({
     <div>
       <main className="space-y-14 pb-20">
         <div>
-          <h1 className="text-[27px] font-bold tracking-tight">{project.config.name} — Change Workflow</h1>
+          <h1 className="text-[27px] font-bold tracking-tight">{project.config.name} - VE Workflow</h1>
           <p className="mt-2 text-lg text-muted-foreground">Upload, analyse, compare and approve design changes in one place.</p>
         </div>
 
@@ -454,8 +454,8 @@ function Workflow({
         {/* Section 2 */}
         <section>
           <h2 className="mb-6 text-[18px] font-semibold">2. Change Analysis</h2>
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <div className="space-y-6">
+          <div className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-2">
               <Card>
                 {fixtureRun?.status === "blocked" && fixtureRun.blocked ? (
                   <>
