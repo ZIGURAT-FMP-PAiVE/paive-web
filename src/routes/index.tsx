@@ -96,6 +96,87 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
   return <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-base font-medium", map[tone])}>{children}</span>;
 }
 
+function ElementPropertiesCard({
+  ifcFile,
+  info,
+  costRows,
+  formatEur,
+}: {
+  ifcFile: File | null;
+  info: IfcInfo | null;
+  costRows: CostRow[];
+  formatEur: (n: number) => string;
+}) {
+  const Grid = ({ rows }: { rows: [string, string][] }) => (
+    <dl className="grid grid-cols-2 gap-x-8 gap-y-3">
+      {rows.map(([k, v], i) => (
+        <div key={k + i}>
+          <dt className="text-sm text-muted-foreground">{k}</dt>
+          <dd className="break-all font-medium">{v || "—"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+
+  const cost = findCost(costRows, [info?.tag, info?.guid, info?.name, info?.expressId]);
+
+  return (
+    <Card>
+      <SectionTitle>Element Properties</SectionTitle>
+      {!ifcFile ? null : !info ? (
+        <p className="text-muted-foreground">Click an element in the model to see its properties.</p>
+      ) : (
+        <div className="max-h-[520px] space-y-5 overflow-y-auto pr-2">
+          <div>
+            <h4 className="mb-3 font-semibold text-primary">Identification</h4>
+            <Grid
+              rows={[
+                ["Name", info.name || "—"],
+                ["IFC Class", info.ifcClass],
+                ["GUID", info.guid],
+                ["Express ID", info.expressId],
+                ["Object Type", info.objectType || "—"],
+                ["Tag", info.tag || "—"],
+              ]}
+            />
+          </div>
+          <div className="border-t border-border pt-4">
+            <h4 className="mb-3 font-semibold text-primary">Cost Data</h4>
+            {cost ? (
+              <Grid
+                rows={[
+                  ["Description", cost.description],
+                  ["Cost Code", cost.code],
+                  ["Quantity", cost.quantity != null ? `${cost.quantity} ${cost.unit}` : ""],
+                  ["Unit Rate", cost.rate != null ? formatEur(cost.rate) : ""],
+                  ["Total Cost", formatEur(cost.total)],
+                ]}
+              />
+            ) : (
+              <p className="text-muted-foreground">
+                {costRows.length
+                  ? "No matching row in the cost file (matched by Element ID, Tag, GUID or Name)."
+                  : "Upload a cost file to link costs."}
+              </p>
+            )}
+          </div>
+          {info.groups.map((g, i) => (
+            <details key={g.name + i} className="border-t border-border pt-4" open={i < 2}>
+              <summary className="mb-3 cursor-pointer font-semibold">
+                {g.name} <span className="text-sm text-muted-foreground">({g.props.length})</span>
+              </summary>
+              <Grid rows={g.props} />
+            </details>
+          ))}
+          {!info.groups.length && (
+            <p className="border-t border-border pt-4 text-muted-foreground">No property sets on this element.</p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function Workflow({
   project,
   onStoreIfc,
@@ -128,7 +209,7 @@ function Workflow({
     if (!loaded) return;
     onStoreCost(loaded.file, loaded.rows);
   };
-  const [sel, setSel] = useState<string | null>("W-101");
+  const [sel, setSel] = useState<string | null>(null);
   const [opt, setOpt] = useState<string>("B");
   const [decision, setDecision] = useState<string | null>(null);
   const [rationale, setRationale] = useState("");
@@ -143,7 +224,6 @@ function Workflow({
   const ifcInput = useRef<HTMLInputElement>(null);
   const costInput = useRef<HTMLInputElement>(null);
 
-  const selected = ELEMENTS.find((e) => e.id === sel);
   useEffect(() => {
     setIfcElementCount(currentIfc?.elementCount ?? null);
     setInfo(null);
@@ -169,8 +249,6 @@ function Workflow({
     setSelectedAssembly(firstOpt);
   }, [ifcFile?.name, project.activeIfcVersion]);
 
-  const fixtureWalls = fixtureRun?.walls ?? [];
-  const selectedFixtureWall = fixtureWalls.find((w) => w.guid === wallGuid);
   const useFixtureUi = Boolean(fixtureRun && ifcFile);
   const viewerSelection = useFixtureUi && wallGuid ? wallGuid : sel;
 
@@ -385,27 +463,7 @@ function Workflow({
                     </div>
                   </div>
                 </div>
-                {selectedFixtureWall && (
-                  <Card>
-                    <SectionTitle>{selectedFixtureWall.name}</SectionTitle>
-                    <dl className="grid grid-cols-2 gap-3 text-base">
-                      {[
-                        ["Type", selectedFixtureWall.type ?? "—"],
-                        ["Area", `${selectedFixtureWall.area_m2} m²`],
-                        ["Change", selectedFixtureWall.change],
-                        ["Cost", selectedFixtureWall.cost_eur != null ? eur(selectedFixtureWall.cost_eur) : "—"],
-                        ["U-value", selectedFixtureWall.u_value ?? "—"],
-                        ["Fire", selectedFixtureWall.fire_min != null ? `${selectedFixtureWall.fire_min} min` : "—"],
-                        ["Rw", selectedFixtureWall.rw_db != null ? `${selectedFixtureWall.rw_db} dB` : "—"],
-                      ].map(([k, v]) => (
-                        <div key={k}>
-                          <dt className="text-muted-foreground">{k}</dt>
-                          <dd className="font-medium">{v}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </Card>
-                )}
+                <ElementPropertiesCard ifcFile={ifcFile} info={info} costRows={costRows} formatEur={eur} />
               </div>
             </div>
           ) : (
@@ -512,39 +570,7 @@ function Workflow({
                   <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">Drag to orbit · Scroll to zoom · Click to select</div>
                 </div>
               </div>
-              <Card>
-                <SectionTitle>Element Properties</SectionTitle>
-                {(() => {
-                  const ifcMode = !!ifcFile;
-                  const c = findCost(costRows, ifcMode ? [info?.tag, info?.guid, info?.name, info?.expressId] : [sel]);
-                  const ident: [string, string][] = ifcMode
-                    ? info ? [["Name", info.name || "—"], ["IFC Class", info.ifcClass], ["GUID", info.guid], ["Express ID", info.expressId], ["Object Type", info.objectType || "—"], ["Tag", info.tag || "—"]] : []
-                    : selected ? [["Element", selected.id], ["Element Type", selected.type], ["GUID", selected.guid], ["Cost Code", selected.code], ["Current Cost", eur(selected.current)], ["Status", selected.status]] : [];
-                  if (!ident.length) return <p className="text-muted-foreground">Click an element in the model to see its properties.</p>;
-                  const Grid = ({ rows }: { rows: [string, string][] }) => (
-                    <dl className="grid grid-cols-2 gap-x-8 gap-y-3">
-                      {rows.map(([k, v], i) => <div key={k + i}><dt className="text-sm text-muted-foreground">{k}</dt><dd className="break-all font-medium">{v || "—"}</dd></div>)}
-                    </dl>
-                  );
-                  return (
-                    <div className="max-h-[520px] space-y-5 overflow-y-auto pr-2">
-                      <div><h4 className="mb-3 font-semibold text-primary">Identification</h4><Grid rows={ident} /></div>
-                      <div className="border-t border-border pt-4">
-                        <h4 className="mb-3 font-semibold text-primary">Cost Data</h4>
-                        {c ? <Grid rows={[["Description", c.description], ["Cost Code", c.code], ["Quantity", c.quantity != null ? `${c.quantity} ${c.unit}` : ""], ["Unit Rate", c.rate != null ? eur(c.rate) : ""], ["Total Cost", eur(c.total)]]} />
-                          : <p className="text-muted-foreground">{costRows.length ? "No matching row in the cost file (matched by Element ID, Tag, GUID or Name)." : "Upload a cost file to link costs."}</p>}
-                      </div>
-                      {ifcMode && info?.groups.map((g, i) => (
-                        <details key={g.name + i} className="border-t border-border pt-4" open={i < 2}>
-                          <summary className="mb-3 cursor-pointer font-semibold">{g.name} <span className="text-sm text-muted-foreground">({g.props.length})</span></summary>
-                          <Grid rows={g.props} />
-                        </details>
-                      ))}
-                      {ifcMode && info && !info.groups.length && <p className="border-t border-border pt-4 text-muted-foreground">No property sets on this element.</p>}
-                    </div>
-                  );
-                })()}
-              </Card>
+              <ElementPropertiesCard ifcFile={ifcFile} info={info} costRows={costRows} formatEur={eur} />
             </div>
           </div>
           )}
