@@ -96,7 +96,7 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
   return <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-base font-medium", map[tone])}>{children}</span>;
 }
 
-function ElementPropertiesCard({
+function ElementPropertiesContent({
   ifcFile,
   info,
   costRows,
@@ -108,7 +108,7 @@ function ElementPropertiesCard({
   formatEur: (n: number) => string;
 }) {
   const Grid = ({ rows }: { rows: [string, string][] }) => (
-    <dl className="grid grid-cols-2 gap-x-8 gap-y-3">
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
       {rows.map(([k, v], i) => (
         <div key={k + i}>
           <dt className="text-sm text-muted-foreground">{k}</dt>
@@ -121,12 +121,12 @@ function ElementPropertiesCard({
   const cost = findCost(costRows, [info?.tag, info?.guid, info?.name, info?.expressId]);
 
   return (
-    <Card>
-      <SectionTitle>Element Properties</SectionTitle>
+    <>
+      <h3 className="mb-4 text-[18px] font-semibold">Element Properties</h3>
       {!ifcFile ? null : !info ? (
-        <p className="text-muted-foreground">Click an element in the model to see its properties.</p>
+        <p className="text-base text-muted-foreground">Click an element in the model to see its properties.</p>
       ) : (
-        <div className="max-h-[520px] space-y-5 overflow-y-auto pr-2">
+        <div className="space-y-5">
           <div>
             <h4 className="mb-3 font-semibold text-primary">Identification</h4>
             <Grid
@@ -173,7 +173,61 @@ function ElementPropertiesCard({
           )}
         </div>
       )}
-    </Card>
+    </>
+  );
+}
+
+function BimModelViewerPanel({
+  ifcFile,
+  projectId,
+  activeVersion,
+  selectedId,
+  onSelect,
+  onInspect,
+  onModelLoaded,
+  info,
+  costRows,
+  formatEur,
+}: {
+  ifcFile: File | null;
+  projectId: string;
+  activeVersion: number;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onInspect: (info: IfcInfo | null) => void;
+  onModelLoaded: (stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
+  info: IfcInfo | null;
+  costRows: CostRow[];
+  formatEur: (n: number) => string;
+}) {
+  return (
+    <div className="glass flex min-h-[min(85vh,820px)] flex-col overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex items-center gap-3">
+          <Box className="h-6 w-6 text-primary" />
+          <h3 className="text-[18px] font-semibold">BIM Model Viewer</h3>
+        </div>
+        <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="relative h-full min-h-[min(52vh,560px)] flex-1 lg:min-h-0">
+          <BimViewer
+            key={`${projectId}-${activeVersion}-${ifcFile?.name ?? "no-ifc"}`}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            file={ifcFile}
+            onInspect={onInspect}
+            onModelLoaded={onModelLoaded}
+          />
+          <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
+            Drag to orbit · Scroll to zoom · Click to select
+          </div>
+        </div>
+        <div className="max-h-[40vh] shrink-0 overflow-y-auto border-t border-border bg-background/30 p-6 lg:max-h-none lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0 xl:w-[26rem]">
+          <ElementPropertiesContent ifcFile={ifcFile} info={info} costRows={costRows} formatEur={formatEur} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -400,7 +454,7 @@ function Workflow({
         {/* Section 2 */}
         <section>
           <h2 className="mb-6 text-[18px] font-semibold">2. Change Analysis</h2>
-          <div className="grid gap-6 lg:grid-cols-[5fr_7fr]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
             <div className="space-y-6">
               <Card>
                 {fixtureRun?.status === "blocked" && fixtureRun.blocked ? (
@@ -428,37 +482,24 @@ function Workflow({
                 />
               </Card>
             </div>
-            <div className="space-y-6">
-              <div className="glass overflow-hidden">
-                <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <Box className="h-6 w-6 text-primary" />
-                    <h3 className="text-[18px] font-semibold">BIM Model Viewer</h3>
-                  </div>
-                  <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
-                </div>
-                <div className="relative h-[700px]">
-                  <BimViewer
-                    key={`${project.id}-${project.activeIfcVersion}-${ifcFile?.name ?? "no-ifc"}`}
-                    selectedId={viewerSelection}
-                    onSelect={(id) => {
-                      setSel(id);
-                      setWallGuid(id);
-                    }}
-                    file={ifcFile}
-                    onInspect={setInfo}
-                    onModelLoaded={(stats) => {
-                      setIfcElementCount(stats.elementCount);
-                      if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
-                    }}
-                  />
-                  <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
-                    Drag to orbit · Scroll to zoom · Click to select
-                  </div>
-                </div>
-              </div>
-              <ElementPropertiesCard ifcFile={ifcFile} info={info} costRows={costRows} formatEur={eur} />
-            </div>
+            <BimModelViewerPanel
+              ifcFile={ifcFile}
+              projectId={project.id}
+              activeVersion={project.activeIfcVersion}
+              selectedId={viewerSelection}
+              onSelect={(id) => {
+                setSel(id);
+                setWallGuid(id);
+              }}
+              onInspect={setInfo}
+              onModelLoaded={(stats) => {
+                setIfcElementCount(stats.elementCount);
+                if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
+              }}
+              info={info}
+              costRows={costRows}
+              formatEur={eur}
+            />
           </div>
         </section>
 
