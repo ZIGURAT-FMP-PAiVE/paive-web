@@ -63,6 +63,26 @@ export function VeRunSteps({ run }: { run: PaiveRun }) {
   );
 }
 
+export function D1BlockedPanel({ run }: { run: PaiveRun }) {
+  if (!run.blocked) return null;
+  return (
+    <div className="space-y-3">
+      <p className="font-semibold text-destructive">{run.blocked.message}</p>
+      {run.blocked.what_to_do && <p className="text-base text-muted-foreground">{run.blocked.what_to_do}</p>}
+      <table className="w-full text-left text-base">
+        <tbody>
+          {run.blocked.missing.map((m) => (
+            <tr key={m.field} className="border-t border-border/50">
+              <td className="py-2 pr-4 font-medium">{m.field}</td>
+              <td className="py-2 text-muted-foreground">{m.detail}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function D1ResultPanel({ run }: { run: PaiveRun }) {
   const d1 = run.d1;
   if (!d1) return null;
@@ -73,10 +93,30 @@ export function D1ResultPanel({ run }: { run: PaiveRun }) {
       <div className="grid gap-3 sm:grid-cols-3">
         <MetricTile
           label="Achievement"
-          value={`${d1.achievement_previous_pct}% → ${d1.achievement_current_pct}%`}
+          value={
+            d1.achievement_previous_pct != null && d1.achievement_current_pct != null
+              ? `${d1.achievement_previous_pct}% → ${d1.achievement_current_pct}%`
+              : d1.achievement_current_pct != null
+                ? `${d1.achievement_current_pct}%`
+                : "—"
+          }
         />
-        <MetricTile label="ΔV" value={`${d1.dV_pct > 0 ? "+" : ""}${d1.dV_pct}%`} />
-        <MetricTile label="ΔR" value={`${d1.dR_eur > 0 ? "+" : ""}€${Math.round(d1.dR_eur).toLocaleString("en-US")}`} />
+        <MetricTile
+          label="ΔV"
+          value={
+            d1.dV_pct != null && !Number.isNaN(d1.dV_pct)
+              ? `${d1.dV_pct > 0 ? "+" : ""}${d1.dV_pct}%`
+              : "—"
+          }
+        />
+        <MetricTile
+          label="ΔR"
+          value={
+            d1.dR_eur != null && !Number.isNaN(d1.dR_eur)
+              ? `${d1.dR_eur > 0 ? "+" : ""}€${Math.round(d1.dR_eur).toLocaleString("en-US")}`
+              : "—"
+          }
+        />
       </div>
       {d1.required_targets_failed.length > 0 && (
         <ul className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4">

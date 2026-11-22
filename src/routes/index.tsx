@@ -9,7 +9,6 @@ import {
   activeIfcVersion,
   appendIfcVersion,
   clearProjectIfcVersions,
-  previousUploadedIfcVersion,
   defaultProjectConfig,
   ifcVersionLabel,
   resetProjectToDefaults,
@@ -34,6 +33,7 @@ import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard } from 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TruncatedText } from "@/components/TruncatedText";
 import {
+  D1BlockedPanel,
   D1ResultPanel,
   D2OptionsPanel,
   DecisionNotice,
@@ -191,13 +191,7 @@ function Workflow({
   onIfcModelStats: (version: number, stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
 }) {
   const currentIfc = activeIfcVersion(project);
-  const previousIfc = previousUploadedIfcVersion(project, currentIfc);
   const ifcFile = currentIfc?.file ?? null;
-  const canCompareVersions = Boolean(currentIfc?.file && previousIfc?.file);
-  const elementDelta =
-    canCompareVersions && currentIfc?.elementCount != null && previousIfc?.elementCount != null
-      ? currentIfc.elementCount - previousIfc.elementCount
-      : null;
   const costRows = project.costData?.rows ?? [];
   const costDataset = project.costData?.name ?? (project.config.costSource || null);
   const [drag, setDrag] = useState(false);
@@ -405,161 +399,47 @@ function Workflow({
 
         {/* Section 2 */}
         <section>
-          <h2 className="mb-6 text-[18px] font-semibold">
-            2. Change Analysis
-          </h2>
-          {useFixtureUi && fixtureRun?.status === "blocked" ? (
-            <Card>
-              <p className="text-base text-muted-foreground">This upload maps to a blocked fixture run. Fix the missing data in section 1, then upload again.</p>
-            </Card>
-          ) : useFixtureUi && fixtureRun?.d1 ? (
-            <div className="grid gap-6 lg:grid-cols-[5fr_7fr]">
-              <div className="space-y-6">
-                <Card>
-                  <D1ResultPanel run={fixtureRun} />
-                </Card>
-                {fixtureRun.walls && fixtureRun.walls.length > 0 && (
-                  <Card>
-                    <SectionTitle sub="Red = failed target · amber = changed · green = OK · grey = unmapped.">
-                      Affected Elements
-                    </SectionTitle>
-                    <PaiveWallsTable
-                      walls={fixtureRun.walls}
-                      selectedGuid={wallGuid}
-                      onSelect={(g) => {
-                        setWallGuid(g);
-                        setSel(g);
-                      }}
-                    />
-                  </Card>
-                )}
-              </div>
-              <div className="space-y-6">
-                <div className="glass overflow-hidden">
-                  <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <Box className="h-6 w-6 text-primary" />
-                      <h3 className="text-[18px] font-semibold">BIM Model Viewer</h3>
-                    </div>
-                    <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
-                  </div>
-                  <div className="relative h-[700px]">
-                    <BimViewer
-                      key={`${project.id}-${project.activeIfcVersion}-${ifcFile?.name ?? "demo"}`}
-                      selectedId={viewerSelection}
-                      onSelect={(id) => {
-                        setSel(id);
-                        setWallGuid(id);
-                      }}
-                      file={ifcFile}
-                      onInspect={setInfo}
-                      onModelLoaded={(stats) => {
-                        setIfcElementCount(stats.elementCount);
-                        if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
-                      }}
-                    />
-                    <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
-                      Drag to orbit · Scroll to zoom · Click to select
-                    </div>
-                  </div>
-                </div>
-                <ElementPropertiesCard ifcFile={ifcFile} info={info} costRows={costRows} formatEur={eur} />
-              </div>
-            </div>
-          ) : (
+          <h2 className="mb-6 text-[18px] font-semibold">2. Change Analysis</h2>
           <div className="grid gap-6 lg:grid-cols-[5fr_7fr]">
             <div className="space-y-6">
               <Card>
-                <div className="flex items-start justify-between gap-4">
-                  <SectionTitle sub="Changes come from comparing the current IFC upload to the previous stored version.">
-                    Detected model changes
-                  </SectionTitle>
-                  <Badge tone={canCompareVersions ? "warning" : "muted"}>
-                    {canCompareVersions ? (
-                      <>
-                        <span className="mr-2 h-2 w-2 animate-pulse rounded-full bg-warning" />
-                        Comparing versions
-                      </>
-                    ) : (
-                      "Awaiting second upload"
-                    )}
-                  </Badge>
-                </div>
-                {canCompareVersions && currentIfc && previousIfc ? (
-                  <div className="space-y-4">
-                    <p className="text-xl font-medium">
-                      {ifcVersionLabel(currentIfc.version)} vs {ifcVersionLabel(previousIfc.version)}
-                    </p>
-                    <dl className="grid gap-3 text-base">
-                      <div className="flex justify-between gap-4 border-b border-border pb-3">
-                        <dt className="text-muted-foreground">Current model</dt>
-                        <dd className="text-right font-medium">
-                          {currentIfc.name}
-                          {currentIfc.elementCount != null && ` · ${currentIfc.elementCount.toLocaleString("en-US")} elements`}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between gap-4 border-b border-border pb-3">
-                        <dt className="text-muted-foreground">Previous model</dt>
-                        <dd className="text-right font-medium">
-                          {previousIfc.name}
-                          {previousIfc.elementCount != null && ` · ${previousIfc.elementCount.toLocaleString("en-US")} elements`}
-                        </dd>
-                      </div>
-                      {elementDelta != null && (
-                        <div className="flex justify-between gap-4">
-                          <dt className="text-muted-foreground">Element count delta</dt>
-                          <dd className={cn("text-right font-semibold", elementDelta > 0 ? "text-warning" : elementDelta < 0 ? "text-success" : "text-foreground")}>
-                            {elementDelta > 0 ? "+" : ""}
-                            {elementDelta.toLocaleString("en-US")}
-                          </dd>
-                        </div>
-                      )}
-                    </dl>
-                  </div>
-                ) : (
-                  <p className="text-base text-muted-foreground">
-                    {currentIfc?.file
-                      ? "Upload another IFC version to compare against the previous file. The affected-elements list will reflect what changed between those models."
-                      : "Upload at least two IFC versions with files stored on this project to detect geometry and element changes automatically."}
-                  </p>
-                )}
+                {fixtureRun?.status === "blocked" && fixtureRun.blocked ? (
+                  <D1BlockedPanel run={fixtureRun} />
+                ) : fixtureRun?.d1 ? (
+                  <D1ResultPanel run={fixtureRun} />
+                ) : null}
               </Card>
               <Card>
-                <SectionTitle sub="Click a row to locate it in the model.">Affected Elements</SectionTitle>
-                <table className="w-full text-left">
-                  <thead className="text-base text-muted-foreground">
-                    <tr className="border-b border-border"><th className="pb-3 font-medium">Element</th><th className="pb-3 font-medium">Type</th><th className="pb-3 text-right font-medium">Cost Impact</th></tr>
-                  </thead>
-                  <tbody>
-                    {costRows.length ? costRows.slice(0, 15).map((r, i) => (
-                      <tr key={r.id + i} onClick={() => setSel(r.id)} className={cn("cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-accent", sel === r.id && "bg-primary/10")}>
-                        <td className={cn("py-4 pl-2 font-medium", sel === r.id && "text-primary")}>{r.id}</td>
-                        <td className="py-4 text-muted-foreground">{r.description || r.code}</td>
-                        <td className="py-4 pr-2 text-right font-semibold text-warning">{eur(r.total)}</td>
-                      </tr>
-                    )) : ELEMENTS.map((e) => (
-                      <tr key={e.id} onClick={() => setSel(e.id)} className={cn("cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-accent", sel === e.id && "bg-primary/10")}>
-                        <td className={cn("py-4 pl-2 font-medium", sel === e.id && "text-primary")}>{e.id.startsWith("W-") ? "Wall" : e.id.startsWith("D-") ? "Door" : e.id.startsWith("WIN") ? "Window" : "Slab"} {e.id}</td>
-                        <td className="py-4 font-mono text-muted-foreground">{e.type}</td>
-                        <td className="py-4 pr-2 text-right font-semibold text-warning">+ €{e.cost.toLocaleString("en-US")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="mt-4 flex justify-between border-t border-border pt-4 font-semibold"><span>Total</span><span className="text-warning">+ €10,400</span></div>
+                <SectionTitle sub="Red = failed target · amber = changed · green = OK · grey = unmapped.">
+                  Affected Elements
+                </SectionTitle>
+                <PaiveWallsTable
+                  walls={fixtureRun?.walls ?? []}
+                  selectedGuid={wallGuid}
+                  onSelect={(g) => {
+                    setWallGuid(g);
+                    setSel(g);
+                  }}
+                />
               </Card>
             </div>
             <div className="space-y-6">
               <div className="glass overflow-hidden">
                 <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                  <div className="flex items-center gap-3"><Box className="h-6 w-6 text-primary" /><h3 className="text-[18px] font-semibold">BIM Model Viewer</h3></div>
+                  <div className="flex items-center gap-3">
+                    <Box className="h-6 w-6 text-primary" />
+                    <h3 className="text-[18px] font-semibold">BIM Model Viewer</h3>
+                  </div>
                   <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
                 </div>
                 <div className="relative h-[700px]">
                   <BimViewer
-                    key={`${project.id}-${project.activeIfcVersion}-${ifcFile?.name ?? "demo"}`}
-                    selectedId={sel}
-                    onSelect={setSel}
+                    key={`${project.id}-${project.activeIfcVersion}-${ifcFile?.name ?? "no-ifc"}`}
+                    selectedId={viewerSelection}
+                    onSelect={(id) => {
+                      setSel(id);
+                      setWallGuid(id);
+                    }}
                     file={ifcFile}
                     onInspect={setInfo}
                     onModelLoaded={(stats) => {
@@ -567,13 +447,14 @@ function Workflow({
                       if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
                     }}
                   />
-                  <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">Drag to orbit · Scroll to zoom · Click to select</div>
+                  <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
+                    Drag to orbit · Scroll to zoom · Click to select
+                  </div>
                 </div>
               </div>
               <ElementPropertiesCard ifcFile={ifcFile} info={info} costRows={costRows} formatEur={eur} />
             </div>
           </div>
-          )}
         </section>
 
         {/* Section 3 */}
