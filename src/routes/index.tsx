@@ -201,7 +201,7 @@ function BimModelViewerPanel({
   formatEur: (n: number) => string;
 }) {
   return (
-    <div className="glass flex min-h-[min(85vh,820px)] flex-col overflow-hidden">
+    <div className="glass flex flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <Box className="h-6 w-6 text-primary" />
@@ -209,8 +209,8 @@ function BimModelViewerPanel({
         </div>
         <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="relative h-full min-h-[min(52vh,560px)] flex-1 lg:min-h-0">
+      <div className="flex flex-col lg:flex-row lg:items-stretch">
+        <div className="relative h-[min(58vh,680px)] min-h-[480px] w-full flex-1">
           <BimViewer
             key={`${projectId}-${activeVersion}-${ifcFile?.name ?? "no-ifc"}`}
             selectedId={selectedId}
@@ -223,7 +223,7 @@ function BimModelViewerPanel({
             Drag to orbit · Scroll to zoom · Click to select
           </div>
         </div>
-        <div className="max-h-[40vh] shrink-0 overflow-y-auto border-t border-border bg-background/30 p-6 lg:max-h-none lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0 xl:w-[26rem]">
+        <div className="max-h-[40vh] shrink-0 overflow-y-auto border-t border-border bg-background/30 p-6 lg:max-h-[min(58vh,680px)] lg:min-h-[480px] lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0 xl:w-[26rem]">
           <ElementPropertiesContent ifcFile={ifcFile} info={info} costRows={costRows} formatEur={formatEur} />
         </div>
       </div>

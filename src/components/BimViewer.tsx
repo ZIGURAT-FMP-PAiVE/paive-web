@@ -46,7 +46,8 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
       const { OrbitControls } = await import("three/examples/jsm/controls/OrbitControls.js");
       const el = mountRef.current;
       if (!el || disposed) return;
-      const w = el.clientWidth, h = el.clientHeight;
+      const w = Math.max(el.clientWidth, 1);
+      const h = Math.max(el.clientHeight, 1);
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0b1120);
       const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
@@ -242,8 +243,11 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
       renderer.domElement.addEventListener("pointerdown", pd);
       renderer.domElement.addEventListener("pointerup", pu);
       const ro = new ResizeObserver(() => {
-        const W = el.clientWidth, H = el.clientHeight;
-        camera.aspect = W / H; camera.updateProjectionMatrix(); renderer.setSize(W, H);
+        const W = Math.max(el.clientWidth, 1);
+        const H = Math.max(el.clientHeight, 1);
+        camera.aspect = W / H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(W, H);
       });
       ro.observe(el);
       let raf = 0;
