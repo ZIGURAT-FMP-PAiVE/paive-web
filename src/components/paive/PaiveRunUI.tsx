@@ -514,6 +514,7 @@ export function Ve5HumanGatePanel({
   onAccept,
   onReject,
   result,
+  acceptLocked = false,
 }: {
   reviewer: string;
   onReviewerChange: (value: string) => void;
@@ -525,10 +526,13 @@ export function Ve5HumanGatePanel({
   onAccept: () => void;
   onReject: () => void;
   result: DecideResult | null;
+  /** After a successful accept, lock accept (and inputs) for this run. */
+  acceptLocked?: boolean;
 }) {
   const inactive = awaitingModel || !hasOptions;
   const canSubmit =
     hasOptions && !awaitingModel && reviewer.trim().length > 0 && decisionReason.trim().length > 0;
+  const fieldsLocked = acceptLocked || inactive;
 
   return (
     <div
@@ -556,9 +560,13 @@ export function Ve5HumanGatePanel({
           id="paive-reviewer"
           value={reviewer}
           onChange={(e) => onReviewerChange(e.target.value)}
-          disabled={inactive}
+          disabled={fieldsLocked}
           placeholder={inactive ? undefined : "Who is signing off?"}
-          className={cn(ve5FieldClass, "max-w-md", inactive && "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground")}
+          className={cn(
+            ve5FieldClass,
+            "max-w-md",
+            fieldsLocked && "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground",
+          )}
         />
         <label className={cn("mt-2 block text-base", inactive ? "text-muted-foreground/80" : "text-muted-foreground")} htmlFor="paive-reason">
           Reason
@@ -568,16 +576,19 @@ export function Ve5HumanGatePanel({
           value={decisionReason}
           onChange={(e) => onDecisionReasonChange(e.target.value)}
           rows={4}
-          disabled={inactive}
+          disabled={fieldsLocked}
           placeholder="Why accept or reject this option?"
-          className={cn(ve5FieldClass, inactive && "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground")}
+          className={cn(
+            ve5FieldClass,
+            fieldsLocked && "cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground",
+          )}
         />
         <div className="flex flex-wrap gap-3">
           <Button
             type="button"
             size="lg"
             variant={inactive ? "ghost" : "default"}
-            disabled={!canSubmit}
+            disabled={!canSubmit || acceptLocked}
             onClick={onAccept}
             className={inactive ? "text-muted-foreground" : undefined}
           >
@@ -588,7 +599,7 @@ export function Ve5HumanGatePanel({
             type="button"
             size="lg"
             variant={inactive ? "ghost" : "outlineDestructive"}
-            disabled={!canSubmit}
+            disabled={!canSubmit || acceptLocked}
             onClick={onReject}
             className={inactive ? "text-muted-foreground" : undefined}
           >
@@ -596,7 +607,9 @@ export function Ve5HumanGatePanel({
             Reject
           </Button>
         </div>
-        <p className="text-base text-muted-foreground">No changes are made to the BIM model.</p>
+        {inactive ? (
+          <p className="text-base text-muted-foreground">No changes are made to the BIM model.</p>
+        ) : null}
         <DecisionNotice result={result} />
       </div>
     </div>
@@ -608,9 +621,13 @@ export function DecisionNotice({ result }: { result: DecideResult | null }) {
   if ("error" in result) {
     return <p className="mt-2 text-base font-medium text-destructive">{result.error.message}</p>;
   }
+  const decisionLabel =
+    ("decision" in result && typeof result.decision === "string" && result.decision) ||
+    result.result.decision ||
+    "decision";
   return (
     <p className="mt-2 text-base text-success">
-      Recorded {result.result.decision}. Log #{result.result.log_id}.
+      Recorded {decisionLabel}. Log #{result.result.log_id}.
       {result.result.next_option && ` Next option: ${result.result.next_option.assembly_id}.`}
     </p>
   );

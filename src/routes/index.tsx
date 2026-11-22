@@ -218,6 +218,7 @@ function Workflow({
   const [reviewer, setReviewer] = useState("");
   const [decisionReason, setDecisionReason] = useState("");
   const [decideResult, setDecideResult] = useState<DecideResult | null>(null);
+  const [ve5Accepted, setVe5Accepted] = useState(false);
   const [ifcElementCount, setIfcElementCount] = useState<number | null>(currentIfc?.elementCount ?? null);
   const ifcInput = useRef<HTMLInputElement>(null);
   const costInput = useRef<HTMLInputElement>(null);
@@ -235,6 +236,7 @@ function Workflow({
       setDecideResult(null);
       setReviewer("");
       setDecisionReason("");
+      setVe5Accepted(false);
       return;
     }
     const runId = paiveRun(ifcFile.name);
@@ -242,6 +244,7 @@ function Workflow({
     setFixtureRun(run);
     setDecideResult(null);
     setDecisionReason("");
+    setVe5Accepted(false);
     const firstWall = run.walls?.[0]?.guid ?? null;
     setWallGuid(firstWall);
     setSel(firstWall);
@@ -271,6 +274,7 @@ function Workflow({
       reason: decisionReason.trim(),
       user: reviewer.trim(),
     });
+    if (kind === "accept") setVe5Accepted(true);
     toast.success(kind === "accept" ? "Option accepted" : "Option rejected");
     if (kind === "reject" && res.result.next_option) {
       setSelectedAssembly(res.result.next_option.assembly_id);
@@ -559,6 +563,7 @@ function Workflow({
                   onAccept={() => submitPaiveDecision("accept")}
                   onReject={() => submitPaiveDecision("reject")}
                   result={decideResult}
+                  acceptLocked={ve5Accepted}
                 />
               </Card>
             </>

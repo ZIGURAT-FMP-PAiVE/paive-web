@@ -26,9 +26,9 @@ const labelClass: Record<LegendTone, string> = {
 
 export const WALL_HEALTH_LEGEND: LegendItem[] = [
   { label: "Red", tone: "destructive", description: "failed target" },
-  { label: "amber", tone: "warning", description: "changed" },
-  { label: "green", tone: "success", description: "success" },
-  { label: "grey", tone: "muted", description: "unmapped" },
+  { label: "Amber", tone: "warning", description: "changed" },
+  { label: "Green", tone: "success", description: "success" },
+  { label: "Grey", tone: "muted", description: "unmapped" },
 ];
 
 export const D1_VERDICT_LEGEND: LegendItem[] = [
@@ -38,9 +38,9 @@ export const D1_VERDICT_LEGEND: LegendItem[] = [
 ];
 
 export const DECISION_LOG_LEGEND: LegendItem[] = [
-  { label: "accept", tone: "success", description: "approved option" },
-  { label: "reject", tone: "destructive", description: "declined" },
-  { label: "run", tone: "primary", description: "workflow event" },
+  { label: "Accept", tone: "success", description: "approved option" },
+  { label: "Reject", tone: "destructive", description: "declined" },
+  { label: "Run", tone: "primary", description: "workflow event" },
 ];
 
 export function ColorLegendRow({ items, className }: { items: LegendItem[]; className?: string }) {
