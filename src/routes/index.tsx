@@ -96,6 +96,42 @@ function Badge({ children, tone = "primary" }: { children: ReactNode; tone?: "pr
   return <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-base font-medium", map[tone])}>{children}</span>;
 }
 
+function IfcVersionHistoryCard({ project }: { project: Project }) {
+  const uploaded = project.ifcVersions.filter((v) => v.file);
+  return (
+    <Card>
+      <h3 className="mb-6 text-[18px] font-semibold">Version History</h3>
+      {uploaded.length === 0 ? (
+        <p className="text-base text-muted-foreground">No IFC versions uploaded yet.</p>
+      ) : (
+        <ol className="relative space-y-7 border-l-2 border-border pl-8">
+          {uploaded.map((v) => {
+            const cur = v.version === project.activeIfcVersion;
+            return (
+              <li key={v.version} className="relative">
+                <span
+                  className={cn(
+                    "absolute -left-[42px] top-1 h-5 w-5 rounded-full border-4 border-background",
+                    cur ? "bg-primary" : "bg-muted-foreground",
+                  )}
+                />
+                <div className="font-semibold">
+                  {ifcVersionLabel(v.version)} · {v.name}
+                </div>
+                <div className="text-base text-muted-foreground">
+                  {v.uploadedAt}
+                  {v.sizeLabel ? ` · ${v.sizeLabel}` : ""}
+                  {cur && " · Current"}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Card>
+  );
+}
+
 function ElementPropertiesContent({ ifcFile, info }: { ifcFile: File | null; info: IfcInfo | null }) {
   const Grid = ({ rows }: { rows: [string, string][] }) => (
     <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
@@ -581,21 +617,26 @@ function Workflow({
           {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
             <>
               <SectionTitle>4. Decision & Approval</SectionTitle>
-              <VeReportBlock run={fixtureRun} />
-              <Card className="mt-6">
-                <SectionTitle>Decision log</SectionTitle>
-                <PaiveLogTable entries={paiveLog} />
-              </Card>
-              <div className="mt-6 flex justify-end">
-                <button
-                  type="button"
-                  disabled
-                  title="PDF export will use the same JSON later"
-                  className="flex cursor-not-allowed items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium opacity-50"
-                >
-                  <Download className="h-5 w-5" />
-                  Export PDF (coming soon)
-                </button>
+              <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
+                <div className="space-y-6">
+                  <VeReportBlock run={fixtureRun} />
+                  <Card>
+                    <SectionTitle>Decision log</SectionTitle>
+                    <PaiveLogTable entries={paiveLog} />
+                  </Card>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled
+                      title="PDF export will use the same JSON later"
+                      className="flex cursor-not-allowed items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium opacity-50"
+                    >
+                      <Download className="h-5 w-5" />
+                      Export PDF (coming soon)
+                    </button>
+                  </div>
+                </div>
+                <IfcVersionHistoryCard project={project} />
               </div>
             </>
           ) : (
@@ -615,21 +656,7 @@ function Workflow({
               <label className="mt-6 block text-base text-muted-foreground" htmlFor="rat">Decision Rationale</label>
               <textarea id="rat" value={rationale} onChange={(e) => setRationale(e.target.value)} rows={5} placeholder="Provide decision rationale..." className="mt-2 w-full rounded-xl border border-input bg-background/50 p-4 text-lg outline-none placeholder:text-muted-foreground focus:border-primary" />
             </Card>
-            <Card>
-              <h3 className="mb-6 text-[18px] font-semibold">Version History</h3>
-              <ol className="relative space-y-7 border-l-2 border-border pl-8">
-                {project.ifcVersions.map((v) => {
-                  const cur = v.version === project.activeIfcVersion;
-                  return (
-                    <li key={v.version} className="relative">
-                      <span className={cn("absolute -left-[42px] top-1 h-5 w-5 rounded-full border-4 border-background", cur ? "bg-primary" : "bg-muted-foreground")} />
-                      <div className="font-semibold">{ifcVersionLabel(v.version)} · {v.name}</div>
-                      <div className="text-base text-muted-foreground">{v.uploadedAt}{v.file ? ` · ${v.sizeLabel}` : ""}{cur && " · Current"}</div>
-                    </li>
-                  );
-                })}
-              </ol>
-            </Card>
+            <IfcVersionHistoryCard project={project} />
           </div>
           <div className="mt-6 flex flex-wrap justify-end gap-3">
             <button
