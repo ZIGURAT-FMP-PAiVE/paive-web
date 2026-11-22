@@ -404,10 +404,15 @@ function Workflow({
             <div className="space-y-6">
               <Card>
                 {fixtureRun?.status === "blocked" && fixtureRun.blocked ? (
-                  <D1BlockedPanel run={fixtureRun} />
+                  <>
+                    <SectionTitle>Blocked</SectionTitle>
+                    <D1BlockedPanel run={fixtureRun} />
+                  </>
                 ) : fixtureRun?.d1 ? (
                   <D1ResultPanel run={fixtureRun} />
-                ) : null}
+                ) : (
+                  <SectionTitle>Baseline</SectionTitle>
+                )}
               </Card>
               <Card>
                 <SectionTitle sub="Red = failed target · amber = changed · green = OK · grey = unmapped.">
