@@ -173,7 +173,7 @@
   "d1": {
     "verdict": "value_down",
     "verdict_label": "Value down",
-    "reason": "A required function is below target: Control Heat U 0.35 > 0.28 W/m2K on 4 external walls. The design is cheaper, but a cheaper design that misses a required target is a value loss, not a saving (F4).",
+    "reason": "A required function is below target: Control Heat U 0.35 > 0.28 W/m2K on 4 external walls. The design is cheaper, but a cheaper design that misses a required target is a value loss, not a saving.",
     "F_previous": 1.128,
     "F_current": 0.977,
     "R_previous_eur": 86140.6,

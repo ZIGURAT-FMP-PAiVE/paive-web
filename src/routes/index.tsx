@@ -43,7 +43,6 @@ import {
   VeRunSteps,
   WallFunctionChips,
 } from "@/components/paive/PaiveRunUI";
-import { PaiveWeightsChart } from "@/components/paive/PaiveWeightsChart";
 import { decide, getLog, getRun, paiveRun } from "@/lib/paive/fakeBackend";
 import type { DecideResult, PaiveRun } from "@/lib/paive/types";
 
@@ -243,17 +242,6 @@ function Workflow({
               <Upload className="h-12 w-12 text-primary" />
               <p className="mt-4 text-xl font-medium">Drag & drop your IFC file here</p>
               <p className="text-base text-muted-foreground">IFC 2x3 / IFC4 · up to 500 MB</p>
-              <p className="mt-2 max-w-md text-base text-muted-foreground">
-                Pilot fixtures:{" "}
-                <a className="font-medium text-primary underline" href="/paive-fixtures/typology_v01.ifc" download>
-                  typology_v01.ifc
-                </a>
-                {" · "}
-                <a className="font-medium text-primary underline" href="/paive-fixtures/typology_v02.ifc" download>
-                  typology_v02.ifc
-                </a>
-                . Names containing <span className="font-mono">v01</span> or <span className="font-mono">v02</span> load fixed VE results.
-              </p>
               <button onClick={() => ifcInput.current?.click()} className="mt-5 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90">Select IFC File</button>
               <input ref={ifcInput} type="file" accept=".ifc" hidden onChange={(e) => { handleIfc(e.target.files?.[0]); e.target.value = ""; }} />
             </div>
@@ -349,14 +337,6 @@ function Workflow({
               <div className="space-y-6">
                 <Card>
                   <D1ResultPanel run={fixtureRun} />
-                  {fixtureRun.weights && (
-                    <div className="mt-6">
-                      <PaiveWeightsChart
-                        weights={fixtureRun.weights.weights}
-                        consistencyRatio={fixtureRun.weights.consistency_ratio}
-                      />
-                    </div>
-                  )}
                 </Card>
                 {fixtureRun.walls && fixtureRun.walls.length > 0 && (
                   <Card>
