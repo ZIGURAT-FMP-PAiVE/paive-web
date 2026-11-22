@@ -210,16 +210,18 @@ function BimModelViewerPanel({
         <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
       </div>
       <div className="flex flex-col lg:flex-row lg:items-stretch">
-        <div className="relative h-[min(58vh,680px)] min-h-[480px] w-full flex-1">
-          <BimViewer
-            key={`${projectId}-${activeVersion}-${ifcFile?.name ?? "no-ifc"}`}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            file={ifcFile}
-            onInspect={onInspect}
-            onModelLoaded={onModelLoaded}
-          />
-          <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
+        <div className="relative h-[min(58vh,680px)] min-h-[480px] w-full shrink-0">
+          <div className="absolute inset-0">
+            <BimViewer
+              key={`${projectId}-${activeVersion}-${ifcFile?.name ?? "no-ifc"}`}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              file={ifcFile}
+              onInspect={onInspect}
+              onModelLoaded={onModelLoaded}
+            />
+          </div>
+          <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
             Drag to orbit · Scroll to zoom · Click to select
           </div>
         </div>

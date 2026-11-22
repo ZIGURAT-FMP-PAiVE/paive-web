@@ -46,6 +46,25 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
       const { OrbitControls } = await import("three/examples/jsm/controls/OrbitControls.js");
       const el = mountRef.current;
       if (!el || disposed) return;
+      await new Promise<void>((resolve) => {
+        const wait = (attempt = 0) => {
+          if (disposed) {
+            resolve();
+            return;
+          }
+          if (el.clientWidth > 40 && el.clientHeight > 40) {
+            resolve();
+            return;
+          }
+          if (attempt > 90) {
+            resolve();
+            return;
+          }
+          requestAnimationFrame(() => wait(attempt + 1));
+        };
+        wait();
+      });
+      if (disposed || !mountRef.current) return;
       const w = Math.max(el.clientWidth, 1);
       const h = Math.max(el.clientHeight, 1);
       const scene = new THREE.Scene();
@@ -56,6 +75,14 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(w, h);
       el.appendChild(renderer.domElement);
+      const fitCanvas = () => {
+        const W = Math.max(el.clientWidth, 1);
+        const H = Math.max(el.clientHeight, 1);
+        camera.aspect = W / H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(W, H);
+      };
+      fitCanvas();
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.target.set(0, 3, 0);
@@ -214,6 +241,7 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
             buildingAreaM2,
           });
           onSelectRef.current(String(newMeshes[0]!.userData['id']));
+          fitCanvas();
         } catch (err) {
           console.error(err);
           setStatus("Could not read this IFC file: " + (err instanceof Error ? err.message : String(err)));
@@ -242,13 +270,7 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
       };
       renderer.domElement.addEventListener("pointerdown", pd);
       renderer.domElement.addEventListener("pointerup", pu);
-      const ro = new ResizeObserver(() => {
-        const W = Math.max(el.clientWidth, 1);
-        const H = Math.max(el.clientHeight, 1);
-        camera.aspect = W / H;
-        camera.updateProjectionMatrix();
-        renderer.setSize(W, H);
-      });
+      const ro = new ResizeObserver(() => fitCanvas());
       ro.observe(el);
       let raf = 0;
       const loop = () => { controls.update(); renderer.render(scene, camera); raf = requestAnimationFrame(loop); };
@@ -279,8 +301,8 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
   }, [file]);
 
   return (
-    <div className="relative h-full w-full">
-      <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
+    <div className="relative h-full min-h-[480px] w-full">
+      <div ref={mountRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
       {!file && !status && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-base text-muted-foreground">
           Upload an IFC model to view it here.
