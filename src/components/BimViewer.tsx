@@ -2,8 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import {
   assignWallsByCardinalCycle,
   collectIfcWallExpressIds,
-  type FootprintBox,
-  type WallCenter,
+  type WallBounds,
 } from "@/lib/ifcWallAssignment";
 import { footprintAreaM2, measureBuildingAreaM2 } from "@/lib/ifcBuildingArea";
 import { wallColourEmissiveHex, wallColourHex } from "@/lib/veSemantics";
@@ -181,14 +180,13 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
 
       const wallPool: string[] = [];
       const ifcWallIdSet = new Set<string>();
-      const wallCenterCache = new Map<string, WallCenter>();
-      const footprintBox: FootprintBox = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
+      const wallBoundsCache = new Map<string, WallBounds>();
       const affectedIdToColour = new Map<string, string>();
       const guidToExpressId = new Map<string, string>();
       const expressToGuid = new Map<string, string>();
 
-      const computeWallCenters = () => {
-        wallCenterCache.clear();
+      const computeWallBounds = () => {
+        wallBoundsCache.clear();
         const wallSet = new Set(wallPool);
         const boxes = new Map<string, InstanceType<typeof THREE.Box3>>();
         for (const m of meshes) {
@@ -201,18 +199,16 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         }
         for (const [id, b] of boxes) {
           const c = b.getCenter(new THREE.Vector3());
-          wallCenterCache.set(id, { id, x: c.x, z: c.z });
+          const size = b.getSize(new THREE.Vector3());
+          wallBoundsCache.set(id, {
+            id,
+            x: c.x,
+            z: c.z,
+            height: size.y,
+            spanX: size.x,
+            spanZ: size.z,
+          });
         }
-      };
-
-      const refreshFootprint = () => {
-        if (!meshes.length) return;
-        const box = new THREE.Box3();
-        for (const m of meshes) box.expandByObject(m);
-        footprintBox.minX = box.min.x;
-        footprintBox.maxX = box.max.x;
-        footprintBox.minZ = box.min.z;
-        footprintBox.maxZ = box.max.z;
       };
 
       const resolveExpressId = (selectionKey: string | null): string | null => {
@@ -229,9 +225,8 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         expressToGuid.clear();
         const specs = affectedWallsRef.current;
         if (!specs?.length || !wallPool.length) return;
-        computeWallCenters();
-        refreshFootprint();
-        const picked = assignWallsByCardinalCycle(wallPool, wallCenterCache, footprintBox, specs.length);
+        computeWallBounds();
+        const picked = assignWallsByCardinalCycle(wallPool, wallBoundsCache, specs.length);
         picked.forEach((expressId, i) => {
           const spec = specs[i];
           if (!spec) return;
@@ -249,10 +244,11 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
           const mat = m.material as InstanceType<typeof THREE.MeshStandardMaterial>;
           const id = m.userData["id"] as string;
           const veCol = affectedIdToColour.get(id);
-          if (focusExpressId && id === focusExpressId) {
+          const isIfcWall = ifcWallIdSet.size === 0 || ifcWallIdSet.has(id);
+          if (focusExpressId && id === focusExpressId && isIfcWall) {
             mat.color.setHex(0x00b3ff);
             mat.emissive.setHex(0x003a55);
-          } else if (veCol) {
+          } else if (veCol && isIfcWall) {
             mat.color.setHex(wallColourHex(veCol));
             mat.emissive.setHex(wallColourEmissiveHex(veCol));
           } else {
@@ -297,7 +293,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         meshes.length = 0;
         wallPool.length = 0;
         ifcWallIdSet.clear();
-        wallCenterCache.clear();
+        wallBoundsCache.clear();
         affectedIdToColour.clear();
         guidToExpressId.clear();
         expressToGuid.clear();
@@ -414,7 +410,11 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
             wallPool.push(id);
             ifcWallIdSet.add(id);
           }
-          const wallIds = api.GetLineIDsWithType(modelID, WebIFC.IFCWALL);
+          for (const m of newMeshes) {
+            const id = String(m.userData["id"]);
+            m.userData.isIfcWall = ifcWallIdSet.has(id);
+          }
+          const ifcWallCount = ifcWallIds.length;
           rebuildAffectedHighlights();
           const activeSelection = selectedIdRef.current;
           paintMeshes(activeSelection);
@@ -424,7 +424,7 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
           setStatus(null);
           onModelLoadedRef.current?.({
             elementCount: elementIds.size,
-            ifcWallCount: wallIds.size(),
+            ifcWallCount,
             buildingAreaM2,
           });
           fitCanvas();
