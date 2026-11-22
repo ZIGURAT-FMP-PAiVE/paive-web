@@ -35,6 +35,8 @@ import { TruncatedText } from "@/components/TruncatedText";
 import {
   D1BlockedPanel,
   D1ResultPanel,
+  D2BlankOptionCard,
+  D2ComparisonMatrix,
   D2OptionsPanel,
   DecisionNotice,
   PaiveLogTable,
@@ -209,8 +211,8 @@ function BimModelViewerPanel({
         </div>
         <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
       </div>
-      <div className="flex flex-col lg:flex-row lg:items-stretch">
-        <div className="relative h-[min(58vh,680px)] min-h-[480px] w-full shrink-0">
+      <div className="flex min-h-[min(58vh,680px)] flex-col lg:min-h-[480px] lg:flex-row">
+        <div className="relative min-h-[480px] flex-1 lg:min-h-0">
           <div className="absolute inset-0">
             <BimViewer
               key={`${projectId}-${activeVersion}-${ifcFile?.name ?? "no-ifc"}`}
@@ -225,7 +227,7 @@ function BimModelViewerPanel({
             Drag to orbit · Scroll to zoom · Click to select
           </div>
         </div>
-        <div className="max-h-[40vh] shrink-0 overflow-y-auto border-t border-border bg-background/30 p-6 lg:max-h-[min(58vh,680px)] lg:min-h-[480px] lg:w-[min(100%,22rem)] lg:border-l lg:border-t-0 xl:w-[26rem]">
+        <div className="max-h-[min(40vh,420px)] shrink-0 overflow-y-auto border-t border-border bg-background/40 p-6 lg:max-h-none lg:w-[min(100%,24rem)] lg:border-l lg:border-t-0 xl:w-[28rem]">
           <ElementPropertiesContent ifcFile={ifcFile} info={info} />
         </div>
       </div>
@@ -517,12 +519,18 @@ function Workflow({
                   onSelect={setSelectedAssembly}
                 />
               ) : (
-                <Card>
-                  <p className="text-base text-muted-foreground">
-                    {fixtureRun.d2?.note ?? "No alternatives required for this run."}
-                  </p>
-                </Card>
+                <D2BlankOptionCard
+                  message={fixtureRun.d2?.note ?? "No alternatives required for this run."}
+                />
               )}
+              <Card className="mt-6">
+                <SectionTitle>Comparison Matrix</SectionTitle>
+                {fixtureRun.d2?.options?.length ? (
+                  <D2ComparisonMatrix options={fixtureRun.d2.options} selectedId={selectedAssembly} />
+                ) : (
+                  <D2ComparisonMatrix placeholder />
+                )}
+              </Card>
               <Card className="mt-6">
                 <SectionTitle sub="Reason is required. Calls decide() on the fixture back end.">
                   Human gate (VE5)
@@ -571,43 +579,107 @@ function Workflow({
                 <DecisionNotice result={decideResult} />
               </Card>
             </>
+          ) : !ifcFile ? (
+            <>
+              <SectionTitle sub="AI-generated alternatives for the detected model changes.">
+                3. Value Engineering Analysis
+              </SectionTitle>
+              <D2BlankOptionCard message="Upload an IFC model to generate ranked alternatives." />
+              <Card className="mt-6">
+                <SectionTitle>Comparison Matrix</SectionTitle>
+                <D2ComparisonMatrix placeholder />
+              </Card>
+            </>
           ) : (
             <>
-          <SectionTitle sub="AI-generated alternatives for the detected model changes.">
-            3. Value Engineering Analysis
-          </SectionTitle>
-          <div className="grid gap-6 md:grid-cols-3">
-            {OPTIONS.map((o) => (
-              <button key={o.key} onClick={() => setOpt(o.key)} className={cn("glass relative border-2 p-8 text-left transition-transform hover:-translate-y-1", toneBorder[o.tone], opt === o.key ? "ring-4 ring-primary/30" : "opacity-80")}>
-                {"rec" in o && <span className="absolute -top-4 right-6 rounded-full bg-primary px-4 py-1 text-base font-semibold text-primary-foreground">Recommended</span>}
-                <div className="flex items-center justify-between">
-                  <span className={cn("text-lg font-semibold", toneText[o.tone])}>Option {o.key}</span>
-                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-full border-2", toneBorder[o.tone], opt === o.key && "bg-primary")}>{opt === o.key && <Check className="h-4 w-4 text-primary-foreground" />}</span>
-                </div>
-                <h3 className="mt-2 text-[18px] font-semibold">{o.name}</h3>
-                <p className="mt-4 text-[24px] font-bold">{o.cost}</p>
-                <ul className="mt-5 space-y-3">
-                  <li className="flex justify-between"><span className="text-muted-foreground">Schedule</span><span>{o.sched}</span></li>
-                  <li className="flex justify-between"><span className="text-muted-foreground">Risk</span><Badge tone={o.risk === "Low" ? "success" : "warning"}>{o.risk}</Badge></li>
-                  <li className="flex justify-between"><span className="text-muted-foreground">Compliance</span><Badge tone="success">Pass</Badge></li>
-                </ul>
-              </button>
-            ))}
-          </div>
-          <Card className="mt-6">
-            <SectionTitle>Comparison Matrix</SectionTitle>
-            <table className="w-full text-left">
-              <thead><tr className="border-b border-border text-muted-foreground"><th className="pb-3 font-medium">Criteria</th>{OPTIONS.map((o) => <th key={o.key} className={cn("pb-3 font-semibold", opt === o.key ? "text-primary" : toneText[o.tone])}>Option {o.key}</th>)}</tr></thead>
-              <tbody>
-                {([["Cost", "cost"], ["Schedule", "sched"], ["Risk", "risk"], ["Compliance", null], ["Carbon Impact", "carbon"]] as const).map(([label, k]) => (
-                  <tr key={label} className="border-b border-border last:border-0">
-                    <td className="py-4 text-muted-foreground">{label}</td>
-                    {OPTIONS.map((o) => <td key={o.key} className={cn("py-4 font-medium", opt === o.key && "bg-primary/10")}>{k ? o[k] : "Pass"}</td>)}
-                  </tr>
+              <SectionTitle sub="AI-generated alternatives for the detected model changes.">
+                3. Value Engineering Analysis
+              </SectionTitle>
+              <div className="grid gap-6 md:grid-cols-3">
+                {OPTIONS.map((o) => (
+                  <button
+                    key={o.key}
+                    onClick={() => setOpt(o.key)}
+                    className={cn(
+                      "glass relative border-2 p-8 text-left transition-transform hover:-translate-y-1",
+                      toneBorder[o.tone],
+                      opt === o.key ? "ring-4 ring-primary/30" : "opacity-80",
+                    )}
+                  >
+                    {"rec" in o && (
+                      <span className="absolute -top-4 right-6 rounded-full bg-primary px-4 py-1 text-base font-semibold text-primary-foreground">
+                        Recommended
+                      </span>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className={cn("text-lg font-semibold", toneText[o.tone])}>Option {o.key}</span>
+                      <span
+                        className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-full border-2",
+                          toneBorder[o.tone],
+                          opt === o.key && "bg-primary",
+                        )}
+                      >
+                        {opt === o.key && <Check className="h-4 w-4 text-primary-foreground" />}
+                      </span>
+                    </div>
+                    <h3 className="mt-2 text-[18px] font-semibold">{o.name}</h3>
+                    <p className="mt-4 text-[24px] font-bold">{o.cost}</p>
+                    <ul className="mt-5 space-y-3">
+                      <li className="flex justify-between">
+                        <span className="text-muted-foreground">Schedule</span>
+                        <span>{o.sched}</span>
+                      </li>
+                      <li className="flex justify-between">
+                        <span className="text-muted-foreground">Risk</span>
+                        <Badge tone={o.risk === "Low" ? "success" : "warning"}>{o.risk}</Badge>
+                      </li>
+                      <li className="flex justify-between">
+                        <span className="text-muted-foreground">Compliance</span>
+                        <Badge tone="success">Pass</Badge>
+                      </li>
+                    </ul>
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </Card>
+              </div>
+              <Card className="mt-6">
+                <SectionTitle>Comparison Matrix</SectionTitle>
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground">
+                      <th className="pb-3 font-medium">Criteria</th>
+                      {OPTIONS.map((o) => (
+                        <th
+                          key={o.key}
+                          className={cn("pb-3 font-semibold", opt === o.key ? "text-primary" : toneText[o.tone])}
+                        >
+                          Option {o.key}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(
+                      [
+                        ["Cost", "cost"],
+                        ["Schedule", "sched"],
+                        ["Risk", "risk"],
+                        ["Compliance", null],
+                        ["Carbon Impact", "carbon"],
+                      ] as const
+                    ).map(([label, k]) => (
+                      <tr key={label} className="border-b border-border last:border-0">
+                        <td className="py-4 text-muted-foreground">{label}</td>
+                        {OPTIONS.map((o) => (
+                          <td key={o.key} className={cn("py-4 font-medium", opt === o.key && "bg-primary/10")}>
+                            {k ? o[k] : "Pass"}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
             </>
           )}
         </section>

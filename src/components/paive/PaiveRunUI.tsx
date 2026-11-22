@@ -1,4 +1,4 @@
-import type { DecideResult, PaiveRun, PaiveWall } from "@/lib/paive/types";
+import type { DecideResult, PaiveOption, PaiveRun, PaiveWall } from "@/lib/paive/types";
 import { verdictBadgeClass, wallRowClass } from "@/lib/paive/fakeBackend";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
@@ -218,6 +218,133 @@ export function WallFunctionChips({ wall }: { wall: PaiveWall | undefined }) {
   );
 }
 
+function optionValueCostLine(o: PaiveOption) {
+  return `ΔV ${o.dV_vs_current_pct > 0 ? "+" : ""}${o.dV_vs_current_pct}% · ΔR ${o.dR_vs_current_eur > 0 ? "+" : ""}€${Math.round(o.dR_vs_current_eur).toLocaleString("en-US")}`;
+}
+
+function optionPerformanceLine(o: PaiveOption) {
+  return `U ${o.performance.u_value} · ${o.performance.fire_min} min fire · Rw ${o.performance.rw_db} dB`;
+}
+
+const COMPARISON_ROWS: {
+  label: string;
+  getValue: (o: PaiveOption) => string;
+  wrap?: boolean;
+  valueTone?: (value: string, o: PaiveOption) => string | undefined;
+}[] = [
+  { label: "Description", getValue: (o) => o.description, wrap: true },
+  { label: "ΔV · ΔR", getValue: optionValueCostLine },
+  { label: "U · fire · Rw", getValue: optionPerformanceLine },
+  {
+    label: "Required targets",
+    getValue: (o) => (o.meets_all_required_targets ? "Meets required targets" : "Misses a required target"),
+    valueTone: (_v, o) => (o.meets_all_required_targets ? "text-success" : "text-destructive"),
+  },
+  { label: "Why", getValue: (o) => o.why, wrap: true },
+];
+
+function rankHeaderTone(rank: number) {
+  if (rank === 1) return "text-success";
+  if (rank === 2) return "text-primary";
+  return "text-warning";
+}
+
+function rankCellHighlight(rank: number) {
+  if (rank === 1) return "bg-success/10";
+  if (rank === 2) return "bg-primary/10";
+  return "bg-warning/10";
+}
+
+export function D2ComparisonMatrix({
+  options,
+  selectedId,
+  placeholder = false,
+}: {
+  options?: PaiveOption[];
+  selectedId?: string | null;
+  placeholder?: boolean;
+}) {
+  const columns = placeholder
+    ? [{ id: "placeholder", label: "—", rank: 1 }]
+    : (options ?? []).map((o) => ({ id: o.assembly_id, label: o.assembly_id, rank: o.rank, option: o }));
+
+  const rows = COMPARISON_ROWS.map((row) => ({
+    ...row,
+    values: placeholder
+      ? ["—"]
+      : (options ?? []).map((o) => row.getValue(o)),
+  }));
+
+  return (
+    <table className="w-full text-left">
+      <thead>
+        <tr className="border-b border-border text-muted-foreground">
+          <th className="pb-3 font-medium">Criteria</th>
+          {columns.map((col) => {
+            const selected = !placeholder && selectedId === col.id;
+            return (
+              <th
+                key={col.id}
+                className={cn(
+                  "pb-3 font-semibold",
+                  rankHeaderTone(col.rank),
+                  selected && !placeholder && rankHeaderTone(col.rank),
+                )}
+              >
+                {col.label}
+              </th>
+            );
+          })}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label} className="border-b border-border last:border-0">
+            <td className="py-4 text-muted-foreground">{row.label}</td>
+            {columns.map((col, colIdx) => {
+              const option = "option" in col ? col.option : undefined;
+              const value = row.values[colIdx] ?? "—";
+              const selected = !placeholder && selectedId === col.id;
+              const valueTone =
+                !placeholder && option && row.valueTone ? row.valueTone(value, option) : undefined;
+              return (
+                <td
+                  key={col.id}
+                  className={cn(
+                    "py-4 font-medium",
+                    row.wrap && "max-w-xs align-top leading-relaxed",
+                    selected && !placeholder && rankCellHighlight(col.rank),
+                    placeholder && "text-muted-foreground",
+                    valueTone,
+                  )}
+                >
+                  {value}
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export function D2BlankOptionCard({ message }: { message?: string }) {
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <div
+        aria-hidden
+        className="glass border-2 border-border p-6 text-left"
+      >
+        <h3 className="text-[18px] font-semibold text-muted-foreground">—</h3>
+        <p className="mt-3 text-base text-muted-foreground">{message ?? "No ranked options yet."}</p>
+        <p className="mt-6 text-xl font-bold text-muted-foreground">ΔV — · ΔR —</p>
+        <p className="mt-2 text-base text-muted-foreground">U — · — min fire · Rw — dB</p>
+      </div>
+    </div>
+  );
+}
+
 export function D2OptionsPanel({
   run,
   selectedId,
@@ -231,44 +358,32 @@ export function D2OptionsPanel({
   if (!d2?.options?.length) return null;
   return (
     <div className="space-y-6">
-      {d2.stability && d2.current_design && (
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="rounded-full border border-border bg-card px-3 py-1 text-base">
-            Ranking: {d2.stability.label}
-          </span>
-          <span className="text-muted-foreground">
-            Current design ({d2.current_design.price_code}) · V {d2.current_design.V.toFixed(4)} · R €
-            {Math.round(d2.current_design.R_eur).toLocaleString("en-US")}
-          </span>
-        </div>
-      )}
       <div className="grid gap-6 md:grid-cols-2">
-        {d2.options.map((o) => (
+        {d2.options.map((o) => {
+          const rankBorder =
+            o.rank === 1 ? "border-success" : o.rank === 2 ? "border-primary" : "border-warning";
+          const rankRing =
+            o.rank === 1 ? "ring-success/25" : o.rank === 2 ? "ring-primary/25" : "ring-warning/25";
+          return (
           <button
             key={o.assembly_id}
             type="button"
             onClick={() => onSelect(o.assembly_id)}
             className={cn(
               "glass border-2 p-6 text-left transition-transform hover:-translate-y-0.5",
-              selectedId === o.assembly_id ? "border-primary ring-4 ring-primary/20" : "border-border",
-              o.rank === 1 && "border-success/50",
+              rankBorder,
+              selectedId === o.assembly_id && `ring-4 ${rankRing}`,
             )}
           >
             {o.rank === 1 && (
-              <span className="mb-2 inline-block rounded-full bg-primary px-3 py-0.5 text-base font-semibold text-primary-foreground">
+              <span className="mb-2 inline-block rounded-full bg-success px-3 py-0.5 text-base font-semibold text-white">
                 Rank {o.rank} recommended
               </span>
             )}
             <h3 className="text-[18px] font-semibold">{o.assembly_id}</h3>
             <p className="mt-1 text-base text-muted-foreground">{o.description}</p>
-            <p className="mt-3 text-xl font-bold">
-              ΔV {o.dV_vs_current_pct > 0 ? "+" : ""}
-              {o.dV_vs_current_pct}% · ΔR {o.dR_vs_current_eur > 0 ? "+" : ""}€
-              {Math.round(o.dR_vs_current_eur).toLocaleString("en-US")}
-            </p>
-            <p className="mt-2 text-base">
-              U {o.performance.u_value} · {o.performance.fire_min} min fire · Rw {o.performance.rw_db} dB
-            </p>
+            <p className="mt-3 text-xl font-bold">{optionValueCostLine(o)}</p>
+            <p className="mt-2 text-base">{optionPerformanceLine(o)}</p>
             <p className="mt-2 flex items-center gap-1 text-base">
               {o.meets_all_required_targets ? (
                 <>
@@ -282,21 +397,9 @@ export function D2OptionsPanel({
             </p>
             <p className="mt-3 text-base text-muted-foreground">{o.why}</p>
           </button>
-        ))}
+          );
+        })}
       </div>
-      {run.ve3?.excluded?.length ? (
-        <div>
-          <h4 className="mb-2 font-semibold text-muted-foreground">Excluded options</h4>
-          <ul className="space-y-2 opacity-75">
-            {run.ve3.excluded.map((e) => (
-              <li key={e.assembly_id} className="rounded-lg border border-dashed border-border p-3 text-base">
-                <span className="font-medium">{e.assembly_id}</span> — {e.description}
-                <div className="text-muted-foreground">{e.reason}</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
   );
 }
