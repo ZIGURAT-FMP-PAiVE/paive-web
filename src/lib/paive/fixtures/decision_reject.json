@@ -1,0 +1,14 @@
+{
+  "run_id": "run_002",
+  "decision": "reject",
+  "selected_option": "ALT-01",
+  "reviewer": "Valentina",
+  "reason": "Client does not accept an ETICS render finish on the main facade.",
+  "at": "2026-11-21T10:14:00Z",
+  "result": {
+    "logged": true,
+    "log_id": 8,
+    "next_option": "ALT-02",
+    "write_back_to_bim": false
+  }
+}

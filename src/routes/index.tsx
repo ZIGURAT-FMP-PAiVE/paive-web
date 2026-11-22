@@ -9,6 +9,7 @@ import {
   activeIfcVersion,
   appendIfcVersion,
   clearProjectIfcVersions,
+  previousUploadedIfcVersion,
   defaultProjectConfig,
   ifcVersionLabel,
   resetProjectToDefaults,
@@ -32,6 +33,19 @@ import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
 import { PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TruncatedText } from "@/components/TruncatedText";
+import {
+  D1ResultPanel,
+  D2OptionsPanel,
+  DecisionNotice,
+  PaiveLogTable,
+  PaiveWallsTable,
+  VeReportBlock,
+  VeRunSteps,
+  WallFunctionChips,
+} from "@/components/paive/PaiveRunUI";
+import { PaiveWeightsChart } from "@/components/paive/PaiveWeightsChart";
+import { decide, getLog, getRun, paiveRun } from "@/lib/paive/fakeBackend";
+import type { DecideResult, PaiveRun } from "@/lib/paive/types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -99,7 +113,13 @@ function Workflow({
   onIfcElementCount: (version: number, elementCount: number) => void;
 }) {
   const currentIfc = activeIfcVersion(project);
+  const previousIfc = previousUploadedIfcVersion(project, currentIfc);
   const ifcFile = currentIfc?.file ?? null;
+  const canCompareVersions = Boolean(currentIfc?.file && previousIfc?.file);
+  const elementDelta =
+    canCompareVersions && currentIfc?.elementCount != null && previousIfc?.elementCount != null
+      ? currentIfc.elementCount - previousIfc.elementCount
+      : null;
   const costRows = project.costData?.rows ?? [];
   const costDataset = project.costData?.name ?? (project.config.costSource || null);
   const [drag, setDrag] = useState(false);
@@ -116,6 +136,13 @@ function Workflow({
   const [opt, setOpt] = useState<string>("B");
   const [decision, setDecision] = useState<string | null>(null);
   const [rationale, setRationale] = useState("");
+  const [fixtureRun, setFixtureRun] = useState<PaiveRun | null>(null);
+  const [wallGuid, setWallGuid] = useState<string | null>(null);
+  const [selectedAssembly, setSelectedAssembly] = useState<string | null>(null);
+  const [reviewer, setReviewer] = useState("Valentina");
+  const [decisionReason, setDecisionReason] = useState("");
+  const [decideResult, setDecideResult] = useState<DecideResult | null>(null);
+  const [paiveLog, setPaiveLog] = useState(() => getLog());
   const [ifcElementCount, setIfcElementCount] = useState<number | null>(currentIfc?.elementCount ?? null);
   const ifcInput = useRef<HTMLInputElement>(null);
   const costInput = useRef<HTMLInputElement>(null);
@@ -125,6 +152,46 @@ function Workflow({
     setIfcElementCount(currentIfc?.elementCount ?? null);
     setInfo(null);
   }, [project.id, project.activeIfcVersion, currentIfc?.elementCount, ifcFile?.name]);
+
+  useEffect(() => {
+    if (!ifcFile) {
+      setFixtureRun(null);
+      setWallGuid(null);
+      setSelectedAssembly(null);
+      setDecideResult(null);
+      return;
+    }
+    const runId = paiveRun(ifcFile.name);
+    const run = getRun(runId);
+    setFixtureRun(run);
+    setDecideResult(null);
+    setDecisionReason("");
+    const firstWall = run.walls?.[0]?.guid ?? null;
+    setWallGuid(firstWall);
+    setSel(firstWall);
+    const firstOpt = run.d2?.options?.[0]?.assembly_id ?? null;
+    setSelectedAssembly(firstOpt);
+  }, [ifcFile?.name, project.activeIfcVersion]);
+
+  const fixtureWalls = fixtureRun?.walls ?? [];
+  const selectedFixtureWall = fixtureWalls.find((w) => w.guid === wallGuid);
+  const useFixtureUi = Boolean(fixtureRun && ifcFile);
+  const viewerSelection = useFixtureUi && wallGuid ? wallGuid : sel;
+
+  const submitPaiveDecision = (kind: "accept" | "reject") => {
+    if (!fixtureRun) return;
+    const res = decide(fixtureRun.run_id, kind, reviewer, decisionReason, selectedAssembly);
+    setDecideResult(res);
+    if ("error" in res) {
+      toast.error(res.error.message);
+      return;
+    }
+    setPaiveLog(getLog());
+    toast.success(kind === "accept" ? "Option accepted" : "Option rejected");
+    if (kind === "reject" && res.result.next_option) {
+      setSelectedAssembly(res.result.next_option.assembly_id);
+    }
+  };
 
   const elementCountLabel = (() => {
     if (currentIfc?.elementCount != null) return currentIfc.elementCount.toLocaleString("en-US");
@@ -176,6 +243,17 @@ function Workflow({
               <Upload className="h-12 w-12 text-primary" />
               <p className="mt-4 text-xl font-medium">Drag & drop your IFC file here</p>
               <p className="text-base text-muted-foreground">IFC 2x3 / IFC4 · up to 500 MB</p>
+              <p className="mt-2 max-w-md text-base text-muted-foreground">
+                Pilot fixtures:{" "}
+                <a className="font-medium text-primary underline" href="/paive-fixtures/typology_v01.ifc" download>
+                  typology_v01.ifc
+                </a>
+                {" · "}
+                <a className="font-medium text-primary underline" href="/paive-fixtures/typology_v02.ifc" download>
+                  typology_v02.ifc
+                </a>
+                . Names containing <span className="font-mono">v01</span> or <span className="font-mono">v02</span> load fixed VE results.
+              </p>
               <button onClick={() => ifcInput.current?.click()} className="mt-5 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90">Select IFC File</button>
               <input ref={ifcInput} type="file" accept=".ifc" hidden onChange={(e) => { handleIfc(e.target.files?.[0]); e.target.value = ""; }} />
             </div>
@@ -196,6 +274,14 @@ function Workflow({
                   );
                 })}
               </ul>
+            )}
+            {fixtureRun && (
+              <Card className="mt-6 border-primary/20 bg-primary/5">
+                <SectionTitle sub="Fixture back end (run → get_run). Status from the uploaded file name.">
+                  1b. VE pipeline
+                </SectionTitle>
+                <VeRunSteps run={fixtureRun} />
+              </Card>
             )}
             <div className="mt-5 flex flex-wrap items-center gap-4">
               <button onClick={() => costInput.current?.click()} className="flex items-center gap-2 rounded-xl border border-secondary px-5 py-3 font-medium text-foreground hover:bg-secondary/15">
@@ -251,19 +337,156 @@ function Workflow({
 
         {/* Section 2 */}
         <section>
-          <h2 className="mb-6 text-[18px] font-semibold">2. Change Analysis</h2>
+          <h2 className="mb-6 text-[18px] font-semibold">
+            {useFixtureUi && fixtureRun?.d1 ? "2. Result (D1)" : "2. Change Analysis"}
+          </h2>
+          {useFixtureUi && fixtureRun?.status === "blocked" ? (
+            <Card>
+              <p className="text-base text-muted-foreground">This upload maps to a blocked fixture run. Fix the missing data in section 1, then upload again.</p>
+            </Card>
+          ) : useFixtureUi && fixtureRun?.d1 ? (
+            <div className="grid gap-6 lg:grid-cols-[5fr_7fr]">
+              <div className="space-y-6">
+                <Card>
+                  <D1ResultPanel run={fixtureRun} />
+                  {fixtureRun.weights && (
+                    <div className="mt-6">
+                      <PaiveWeightsChart
+                        weights={fixtureRun.weights.weights}
+                        consistencyRatio={fixtureRun.weights.consistency_ratio}
+                      />
+                    </div>
+                  )}
+                </Card>
+                {fixtureRun.walls && fixtureRun.walls.length > 0 && (
+                  <Card>
+                    <SectionTitle sub="Red = failed target · amber = changed · green = OK · grey = unmapped.">
+                      Walls in scope
+                    </SectionTitle>
+                    <PaiveWallsTable
+                      walls={fixtureRun.walls}
+                      selectedGuid={wallGuid}
+                      onSelect={(g) => {
+                        setWallGuid(g);
+                        setSel(g);
+                      }}
+                    />
+                    <div className="mt-4 border-t border-border pt-4">
+                      <h4 className="mb-2 font-semibold">Function mapping (VE2)</h4>
+                      <WallFunctionChips wall={selectedFixtureWall} />
+                    </div>
+                  </Card>
+                )}
+              </div>
+              <div className="space-y-6">
+                <div className="glass overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <Box className="h-6 w-6 text-primary" />
+                      <h3 className="text-[18px] font-semibold">BIM Model Viewer</h3>
+                    </div>
+                    <Badge tone="muted">{ifcFile ? ifcFile.name : "Demo model"}</Badge>
+                  </div>
+                  <div className="relative h-[700px]">
+                    <BimViewer
+                      key={`${project.id}-${project.activeIfcVersion}-${ifcFile?.name ?? "demo"}`}
+                      selectedId={viewerSelection}
+                      onSelect={(id) => {
+                        setSel(id);
+                        setWallGuid(id);
+                      }}
+                      file={ifcFile}
+                      onInspect={setInfo}
+                      onModelLoaded={({ elementCount }) => {
+                        setIfcElementCount(elementCount);
+                        onIfcElementCount(project.activeIfcVersion, elementCount);
+                      }}
+                    />
+                    <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
+                      Drag to orbit · Scroll to zoom · Click to select
+                    </div>
+                  </div>
+                </div>
+                {selectedFixtureWall && (
+                  <Card>
+                    <SectionTitle>{selectedFixtureWall.name}</SectionTitle>
+                    <dl className="grid grid-cols-2 gap-3 text-base">
+                      {[
+                        ["Type", selectedFixtureWall.type ?? "—"],
+                        ["Area", `${selectedFixtureWall.area_m2} m²`],
+                        ["Change", selectedFixtureWall.change],
+                        ["Cost", selectedFixtureWall.cost_eur != null ? eur(selectedFixtureWall.cost_eur) : "—"],
+                        ["U-value", selectedFixtureWall.u_value ?? "—"],
+                        ["Fire", selectedFixtureWall.fire_min != null ? `${selectedFixtureWall.fire_min} min` : "—"],
+                        ["Rw", selectedFixtureWall.rw_db != null ? `${selectedFixtureWall.rw_db} dB` : "—"],
+                      ].map(([k, v]) => (
+                        <div key={k}>
+                          <dt className="text-muted-foreground">{k}</dt>
+                          <dd className="font-medium">{v}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </Card>
+                )}
+              </div>
+            </div>
+          ) : (
           <div className="grid gap-6 lg:grid-cols-[5fr_7fr]">
             <div className="space-y-6">
               <Card>
                 <div className="flex items-start justify-between gap-4">
-                  <SectionTitle>Change Requirement</SectionTitle>
-                  <Badge tone="warning"><span className="mr-2 h-2 w-2 animate-pulse rounded-full bg-warning" />Analyzing</Badge>
+                  <SectionTitle sub="Changes come from comparing the current IFC upload to the previous stored version.">
+                    Detected model changes
+                  </SectionTitle>
+                  <Badge tone={canCompareVersions ? "warning" : "muted"}>
+                    {canCompareVersions ? (
+                      <>
+                        <span className="mr-2 h-2 w-2 animate-pulse rounded-full bg-warning" />
+                        Comparing versions
+                      </>
+                    ) : (
+                      "Awaiting second upload"
+                    )}
+                  </Badge>
                 </div>
-                <p className="text-xl font-medium">Move external wall by 2 meters</p>
-                <div className="mt-4 flex flex-wrap gap-3 text-muted-foreground">
-                  <span>Submitted by: <span className="text-foreground">Client</span></span>
-                  <span>·</span><span>CR-0142</span><span>·</span><Badge tone="primary">High Priority</Badge>
-                </div>
+                {canCompareVersions && currentIfc && previousIfc ? (
+                  <div className="space-y-4">
+                    <p className="text-xl font-medium">
+                      {ifcVersionLabel(currentIfc.version)} vs {ifcVersionLabel(previousIfc.version)}
+                    </p>
+                    <dl className="grid gap-3 text-base">
+                      <div className="flex justify-between gap-4 border-b border-border pb-3">
+                        <dt className="text-muted-foreground">Current model</dt>
+                        <dd className="text-right font-medium">
+                          {currentIfc.name}
+                          {currentIfc.elementCount != null && ` · ${currentIfc.elementCount.toLocaleString("en-US")} elements`}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-4 border-b border-border pb-3">
+                        <dt className="text-muted-foreground">Previous model</dt>
+                        <dd className="text-right font-medium">
+                          {previousIfc.name}
+                          {previousIfc.elementCount != null && ` · ${previousIfc.elementCount.toLocaleString("en-US")} elements`}
+                        </dd>
+                      </div>
+                      {elementDelta != null && (
+                        <div className="flex justify-between gap-4">
+                          <dt className="text-muted-foreground">Element count delta</dt>
+                          <dd className={cn("text-right font-semibold", elementDelta > 0 ? "text-warning" : elementDelta < 0 ? "text-success" : "text-foreground")}>
+                            {elementDelta > 0 ? "+" : ""}
+                            {elementDelta.toLocaleString("en-US")}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
+                ) : (
+                  <p className="text-base text-muted-foreground">
+                    {currentIfc?.file
+                      ? "Upload another IFC version to compare against the previous file. The affected-elements list will reflect what changed between those models."
+                      : "Upload at least two IFC versions with files stored on this project to detect geometry and element changes automatically."}
+                  </p>
+                )}
               </Card>
               <Card>
                 <SectionTitle sub="Click a row to locate it in the model.">Affected Elements</SectionTitle>
@@ -346,11 +569,82 @@ function Workflow({
               </Card>
             </div>
           </div>
+          )}
         </section>
 
         {/* Section 3 */}
         <section>
-          <SectionTitle sub="AI-generated alternatives for change request CR-0142.">3. Value Engineering Analysis</SectionTitle>
+          {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
+            <>
+              <SectionTitle sub="Ranked assemblies from D2 (fixture data).">
+                3. Options and decision
+              </SectionTitle>
+              {fixtureRun.d2?.options?.length ? (
+                <D2OptionsPanel
+                  run={fixtureRun}
+                  selectedId={selectedAssembly}
+                  onSelect={setSelectedAssembly}
+                />
+              ) : (
+                <Card>
+                  <p className="text-base text-muted-foreground">
+                    {fixtureRun.d2?.note ?? "No alternatives required for this run."}
+                  </p>
+                </Card>
+              )}
+              <Card className="mt-6">
+                <SectionTitle sub="Reason is required. Calls decide() on the fixture back end.">
+                  Human gate (VE5)
+                </SectionTitle>
+                <label className="block text-base text-muted-foreground" htmlFor="paive-reviewer">
+                  Reviewer
+                </label>
+                <input
+                  id="paive-reviewer"
+                  value={reviewer}
+                  onChange={(e) => setReviewer(e.target.value)}
+                  className="mt-2 w-full max-w-md rounded-xl border border-input bg-background/50 px-4 py-3 text-lg outline-none focus:border-primary"
+                />
+                <label className="mt-4 block text-base text-muted-foreground" htmlFor="paive-reason">
+                  Reason
+                </label>
+                <textarea
+                  id="paive-reason"
+                  value={decisionReason}
+                  onChange={(e) => setDecisionReason(e.target.value)}
+                  rows={4}
+                  placeholder="Why accept or reject this option?"
+                  className="mt-2 w-full rounded-xl border border-input bg-background/50 p-4 text-lg outline-none placeholder:text-muted-foreground focus:border-primary"
+                />
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    disabled={!decisionReason.trim() || !fixtureRun.d2?.options?.length}
+                    onClick={() => submitPaiveDecision("accept")}
+                    className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Check className="h-5 w-5" />
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!decisionReason.trim() || !fixtureRun.d2?.options?.length}
+                    onClick={() => submitPaiveDecision("reject")}
+                    className="flex items-center gap-2 rounded-xl border border-destructive px-6 py-3 font-medium text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <X className="h-5 w-5" />
+                    Reject
+                  </button>
+                </div>
+                <p className="mt-3 text-base text-muted-foreground">No changes are made to the BIM model.</p>
+                <DecisionNotice result={decideResult} />
+              </Card>
+            </>
+          ) : (
+            <>
+          <SectionTitle sub="AI-generated alternatives for the detected model changes.">
+            3. Value Engineering Analysis
+          </SectionTitle>
           <div className="grid gap-6 md:grid-cols-3">
             {OPTIONS.map((o) => (
               <button key={o.key} onClick={() => setOpt(o.key)} className={cn("glass relative border-2 p-8 text-left transition-transform hover:-translate-y-1", toneBorder[o.tone], opt === o.key ? "ring-4 ring-primary/30" : "opacity-80")}>
@@ -383,10 +677,36 @@ function Workflow({
               </tbody>
             </table>
           </Card>
+            </>
+          )}
         </section>
 
         {/* Section 4 */}
         <section>
+          {useFixtureUi && fixtureRun && fixtureRun.status !== "blocked" ? (
+            <>
+              <SectionTitle sub="VE6 draft and decision log from get_log().">
+                4. Report and history
+              </SectionTitle>
+              <VeReportBlock run={fixtureRun} />
+              <Card className="mt-6">
+                <SectionTitle>Decision log</SectionTitle>
+                <PaiveLogTable entries={paiveLog} />
+              </Card>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  disabled
+                  title="PDF export will use the same JSON later"
+                  className="flex cursor-not-allowed items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium opacity-50"
+                >
+                  <Download className="h-5 w-5" />
+                  Export PDF (coming soon)
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
           <SectionTitle>4. Decision & Approval</SectionTitle>
           <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
             <Card>
@@ -419,7 +739,17 @@ function Workflow({
             </Card>
           </div>
           <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <button onClick={() => toast.success("PDF report generated", { description: "PAiVE_CR-0142_report.pdf" })} className="flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium hover:border-primary"><Download className="h-5 w-5" />Export PDF Report</button>
+            <button
+              onClick={() =>
+                toast.success("PDF report generated", {
+                  description: `PAiVE_${project.code}_${ifcVersionLabel(project.activeIfcVersion)}_report.pdf`,
+                })
+              }
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium hover:border-primary"
+            >
+              <Download className="h-5 w-5" />
+              Export PDF Report
+            </button>
             <button onClick={() => {
               const csv = "Criteria,Option A,Option B,Option C\n" + [["Cost", "cost"], ["Schedule", "sched"], ["Risk", "risk"], ["Carbon", "carbon"]].map(([l, k]) => [l, ...OPTIONS.map((o) => o[k as "cost"])].join(",")).join("\n");
               const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "paive_comparison.csv"; a.click();
@@ -427,6 +757,8 @@ function Workflow({
             }} className="flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-3 font-medium hover:border-primary"><FileSpreadsheet className="h-5 w-5" />Export CSV</button>
             <button onClick={() => decision ? toast.success("Decision saved", { description: `${decision} · Option ${opt}` }) : toast.warning("Choose Approve, Request Revision or Reject first")} className="flex items-center gap-2 rounded-xl bg-secondary px-6 py-3 font-semibold text-secondary-foreground hover:opacity-90"><Save className="h-5 w-5" />Save Decision</button>
           </div>
+            </>
+          )}
         </section>
       </main>
     </div>

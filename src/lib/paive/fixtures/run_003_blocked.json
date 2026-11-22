@@ -1,0 +1,93 @@
+{
+  "_mock": "FIXED TEST DATA for the front end. Values computed once from the sample IFC v01/v02, cost_db.csv, alternatives.csv and project_data.json. Not produced by the trained model or the LLM.",
+  "schema_version": "0.1",
+  "run_id": "run_003",
+  "status": "blocked",
+  "created_at": "2026-11-21T10:20:00Z",
+  "project": {
+    "id": "pilot-sample",
+    "name": "PAiVE pilot - sample block",
+    "stage": "Design Development",
+    "confidential": false,
+    "currency": "EUR"
+  },
+  "input": {
+    "ifc_file": "typology_v03_no_psets.ifc",
+    "version_label": "v03",
+    "compare_to": {
+      "run_id": "run_001",
+      "version_label": "v01",
+      "mode": "last-accepted"
+    }
+  },
+  "steps": [
+    {
+      "step": "VE1",
+      "name": "Information",
+      "status": "blocked"
+    },
+    {
+      "step": "VE2",
+      "name": "Function",
+      "status": "not_run"
+    },
+    {
+      "step": "VE3",
+      "name": "Creative",
+      "status": "not_run"
+    },
+    {
+      "step": "VE4",
+      "name": "Evaluation",
+      "status": "not_run"
+    },
+    {
+      "step": "VE5",
+      "name": "Human review",
+      "status": "not_run"
+    },
+    {
+      "step": "VE6",
+      "name": "Report",
+      "status": "not_run"
+    }
+  ],
+  "blocked": {
+    "failure_test": "F1 Insufficient data",
+    "step": "VE1",
+    "message": "Run blocked: required data is missing. Nothing was guessed.",
+    "missing": [
+      {
+        "guid": "1JfyFZ1uvSMu5s96hAyo8c",
+        "name": "EW-01 North facade",
+        "field": "ThermalTransmittance"
+      },
+      {
+        "guid": "3UYKwW_DHTdxitk6bQHN_y",
+        "name": "EW-02 South facade",
+        "field": "ThermalTransmittance"
+      },
+      {
+        "guid": "0fhSgz599Ma9Dqsa4dAGgO",
+        "name": "EW-03 East facade",
+        "field": "ThermalTransmittance"
+      },
+      {
+        "guid": "1hhRKSgqbOMRY5OnQmqMrj",
+        "name": "EW-04 West facade",
+        "field": "ThermalTransmittance"
+      },
+      {
+        "price_code": "EW-B",
+        "field": "unit_rate_eur",
+        "source": "cost_db.csv"
+      }
+    ],
+    "what_to_do": "Re-export the IFC with Pset_WallCommon filled, and ask Ahmed to add the EW-B rate. Then upload again."
+  },
+  "d1": null,
+  "walls": [],
+  "d2": null,
+  "ve6": null,
+  "decision": null
+}

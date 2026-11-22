@@ -53,6 +53,13 @@ export function activeIfcVersion(project: Project): IfcVersion | undefined {
   return project.ifcVersions.find((v) => v.version === project.activeIfcVersion) ?? project.ifcVersions.at(-1);
 }
 
+/** Latest uploaded IFC file before the active version (for version-to-version change detection). */
+export function previousUploadedIfcVersion(project: Project, current = activeIfcVersion(project)): IfcVersion | undefined {
+  if (!current) return undefined;
+  const withFile = project.ifcVersions.filter((v) => v.file);
+  return [...withFile].reverse().find((v) => v.version < current.version);
+}
+
 /** Keep the previous model and store this file as the next version (version 2 on the first upload). */
 export function storeProjectCostFile(
   project: Project,

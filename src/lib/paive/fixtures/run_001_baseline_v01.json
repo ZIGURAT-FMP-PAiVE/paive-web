@@ -1,0 +1,451 @@
+{
+  "_mock": "FIXED TEST DATA for the front end. Values computed once from the sample IFC v01/v02, cost_db.csv, alternatives.csv and project_data.json. Not produced by the trained model or the LLM.",
+  "schema_version": "0.1",
+  "run_id": "run_001",
+  "status": "done",
+  "created_at": "2026-11-14T09:30:00Z",
+  "project": {
+    "id": "pilot-sample",
+    "name": "PAiVE pilot - sample block",
+    "stage": "Design Development",
+    "confidential": false,
+    "currency": "EUR"
+  },
+  "input": {
+    "ifc_file": "typology_v01.ifc",
+    "version_label": "v01",
+    "compare_to": null,
+    "note": "Baseline",
+    "uploaded_by": "Asiya"
+  },
+  "steps": [
+    {
+      "step": "VE1",
+      "name": "Information",
+      "status": "done"
+    },
+    {
+      "step": "VE2",
+      "name": "Function",
+      "status": "done"
+    },
+    {
+      "step": "VE3",
+      "name": "Creative",
+      "status": "done"
+    },
+    {
+      "step": "VE4",
+      "name": "Evaluation",
+      "status": "done"
+    },
+    {
+      "step": "VE5",
+      "name": "Human review",
+      "status": "done"
+    },
+    {
+      "step": "VE6",
+      "name": "Report",
+      "status": "done"
+    }
+  ],
+  "ve1": {
+    "summary": {
+      "walls_total": 5,
+      "mapped": 4,
+      "out_of_scope": 0,
+      "unmapped": 1,
+      "unmapped_share": 0.2,
+      "max_unmapped_share": 0.25,
+      "changed": 0,
+      "new": 5,
+      "removed": 0,
+      "unchanged": 0,
+      "area_in_scope_m2": 473.3
+    }
+  },
+  "weights": {
+    "method": "AHP",
+    "order": [
+      "F-HEAT",
+      "F-FIRE",
+      "F-SOUND",
+      "F-ENCL"
+    ],
+    "weights": {
+      "F-HEAT": 0.467,
+      "F-FIRE": 0.277,
+      "F-SOUND": 0.095,
+      "F-ENCL": 0.16
+    },
+    "consistency_ratio": 0.011,
+    "cr_ok": true,
+    "gate": "F-LOAD (not weighted)"
+  },
+  "d1": {
+    "verdict": "baseline",
+    "verdict_label": "Baseline",
+    "reason": "First upload of the stage: this version is the reference.",
+    "F_current": 1.128,
+    "R_current_eur": 86140.6,
+    "V_current": 0.0131,
+    "achievement_current_pct": 100.0,
+    "required_targets_failed": []
+  },
+  "walls": [
+    {
+      "guid": "1JfyFZ1uvSMu5s96hAyo8c",
+      "name": "EW-01 North facade",
+      "ifc_class": "IfcWall",
+      "type": "EW-A Brick cavity 120MW",
+      "price_code": "EW-A",
+      "storey": "Level 00",
+      "area_m2": 142.5,
+      "is_external": true,
+      "load_bearing": null,
+      "u_value": 0.25,
+      "fire_min": 120,
+      "rw_db": 53,
+      "change": "new",
+      "ve2": {
+        "status": "mapped",
+        "wall_category": "external",
+        "category_confidence": 0.97,
+        "functions": [
+          {
+            "function_id": "F-SEP",
+            "statement": "Separate Space",
+            "type": "basic",
+            "probability": 1.0,
+            "source": "always 1"
+          },
+          {
+            "function_id": "F-HEAT",
+            "statement": "Control Heat",
+            "type": "required_secondary",
+            "probability": 0.96
+          },
+          {
+            "function_id": "F-FIRE",
+            "statement": "Resist Fire",
+            "type": "required_secondary",
+            "probability": 0.91
+          },
+          {
+            "function_id": "F-SOUND",
+            "statement": "Attenuate Sound",
+            "type": "required_secondary",
+            "probability": 0.88
+          },
+          {
+            "function_id": "F-ENCL",
+            "statement": "Enclose Space",
+            "type": "required_secondary",
+            "probability": 0.98
+          },
+          {
+            "function_id": "F-LOAD",
+            "statement": "Transfer Load",
+            "type": "gate",
+            "probability": 0.06,
+            "predicted": false
+          }
+        ],
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {
+        "F-HEAT": 1.12,
+        "F-FIRE": 1.2,
+        "F-SOUND": 1.178,
+        "F-ENCL": 1.0
+      },
+      "achievement_pct": {
+        "F-HEAT": 100.0,
+        "F-FIRE": 100.0,
+        "F-SOUND": 100.0,
+        "F-ENCL": 100.0
+      },
+      "cost_eur": 25935.0,
+      "flags": [],
+      "colour": "green"
+    },
+    {
+      "guid": "3UYKwW_DHTdxitk6bQHN_y",
+      "name": "EW-02 South facade",
+      "ifc_class": "IfcWall",
+      "type": "EW-A Brick cavity 120MW",
+      "price_code": "EW-A",
+      "storey": "Level 00",
+      "area_m2": 138.0,
+      "is_external": true,
+      "load_bearing": null,
+      "u_value": 0.25,
+      "fire_min": 120,
+      "rw_db": 53,
+      "change": "new",
+      "ve2": {
+        "status": "mapped",
+        "wall_category": "external",
+        "category_confidence": 0.97,
+        "functions": [
+          {
+            "function_id": "F-SEP",
+            "statement": "Separate Space",
+            "type": "basic",
+            "probability": 1.0,
+            "source": "always 1"
+          },
+          {
+            "function_id": "F-HEAT",
+            "statement": "Control Heat",
+            "type": "required_secondary",
+            "probability": 0.96
+          },
+          {
+            "function_id": "F-FIRE",
+            "statement": "Resist Fire",
+            "type": "required_secondary",
+            "probability": 0.91
+          },
+          {
+            "function_id": "F-SOUND",
+            "statement": "Attenuate Sound",
+            "type": "required_secondary",
+            "probability": 0.88
+          },
+          {
+            "function_id": "F-ENCL",
+            "statement": "Enclose Space",
+            "type": "required_secondary",
+            "probability": 0.98
+          },
+          {
+            "function_id": "F-LOAD",
+            "statement": "Transfer Load",
+            "type": "gate",
+            "probability": 0.06,
+            "predicted": false
+          }
+        ],
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {
+        "F-HEAT": 1.12,
+        "F-FIRE": 1.2,
+        "F-SOUND": 1.178,
+        "F-ENCL": 1.0
+      },
+      "achievement_pct": {
+        "F-HEAT": 100.0,
+        "F-FIRE": 100.0,
+        "F-SOUND": 100.0,
+        "F-ENCL": 100.0
+      },
+      "cost_eur": 25116.0,
+      "flags": [],
+      "colour": "green"
+    },
+    {
+      "guid": "0fhSgz599Ma9Dqsa4dAGgO",
+      "name": "EW-03 East facade",
+      "ifc_class": "IfcWall",
+      "type": "EW-A Brick cavity 120MW",
+      "price_code": "EW-A",
+      "storey": "Level 00",
+      "area_m2": 96.4,
+      "is_external": true,
+      "load_bearing": null,
+      "u_value": 0.25,
+      "fire_min": 120,
+      "rw_db": 53,
+      "change": "new",
+      "ve2": {
+        "status": "mapped",
+        "wall_category": "external",
+        "category_confidence": 0.97,
+        "functions": [
+          {
+            "function_id": "F-SEP",
+            "statement": "Separate Space",
+            "type": "basic",
+            "probability": 1.0,
+            "source": "always 1"
+          },
+          {
+            "function_id": "F-HEAT",
+            "statement": "Control Heat",
+            "type": "required_secondary",
+            "probability": 0.96
+          },
+          {
+            "function_id": "F-FIRE",
+            "statement": "Resist Fire",
+            "type": "required_secondary",
+            "probability": 0.91
+          },
+          {
+            "function_id": "F-SOUND",
+            "statement": "Attenuate Sound",
+            "type": "required_secondary",
+            "probability": 0.88
+          },
+          {
+            "function_id": "F-ENCL",
+            "statement": "Enclose Space",
+            "type": "required_secondary",
+            "probability": 0.98
+          },
+          {
+            "function_id": "F-LOAD",
+            "statement": "Transfer Load",
+            "type": "gate",
+            "probability": 0.06,
+            "predicted": false
+          }
+        ],
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {
+        "F-HEAT": 1.12,
+        "F-FIRE": 1.2,
+        "F-SOUND": 1.178,
+        "F-ENCL": 1.0
+      },
+      "achievement_pct": {
+        "F-HEAT": 100.0,
+        "F-FIRE": 100.0,
+        "F-SOUND": 100.0,
+        "F-ENCL": 100.0
+      },
+      "cost_eur": 17544.8,
+      "flags": [],
+      "colour": "green"
+    },
+    {
+      "guid": "1hhRKSgqbOMRY5OnQmqMrj",
+      "name": "EW-04 West facade",
+      "ifc_class": "IfcWall",
+      "type": "EW-A Brick cavity 120MW",
+      "price_code": "EW-A",
+      "storey": "Level 00",
+      "area_m2": 96.4,
+      "is_external": true,
+      "load_bearing": null,
+      "u_value": 0.25,
+      "fire_min": 120,
+      "rw_db": 53,
+      "change": "new",
+      "ve2": {
+        "status": "mapped",
+        "wall_category": "external",
+        "category_confidence": 0.97,
+        "functions": [
+          {
+            "function_id": "F-SEP",
+            "statement": "Separate Space",
+            "type": "basic",
+            "probability": 1.0,
+            "source": "always 1"
+          },
+          {
+            "function_id": "F-HEAT",
+            "statement": "Control Heat",
+            "type": "required_secondary",
+            "probability": 0.96
+          },
+          {
+            "function_id": "F-FIRE",
+            "statement": "Resist Fire",
+            "type": "required_secondary",
+            "probability": 0.91
+          },
+          {
+            "function_id": "F-SOUND",
+            "statement": "Attenuate Sound",
+            "type": "required_secondary",
+            "probability": 0.88
+          },
+          {
+            "function_id": "F-ENCL",
+            "statement": "Enclose Space",
+            "type": "required_secondary",
+            "probability": 0.98
+          },
+          {
+            "function_id": "F-LOAD",
+            "statement": "Transfer Load",
+            "type": "gate",
+            "probability": 0.06,
+            "predicted": false
+          }
+        ],
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {
+        "F-HEAT": 1.12,
+        "F-FIRE": 1.2,
+        "F-SOUND": 1.178,
+        "F-ENCL": 1.0
+      },
+      "achievement_pct": {
+        "F-HEAT": 100.0,
+        "F-FIRE": 100.0,
+        "F-SOUND": 100.0,
+        "F-ENCL": 100.0
+      },
+      "cost_eur": 17544.8,
+      "flags": [],
+      "colour": "green"
+    },
+    {
+      "guid": "1WFzaRxz5ODP5E0Ai2l$8L",
+      "name": "Generic - 200mm",
+      "ifc_class": "IfcWall",
+      "type": null,
+      "price_code": null,
+      "storey": "Level 00",
+      "area_m2": 24.0,
+      "is_external": null,
+      "load_bearing": null,
+      "u_value": null,
+      "fire_min": null,
+      "rw_db": null,
+      "change": "new",
+      "ve2": {
+        "status": "unmapped",
+        "wall_category": null,
+        "category_confidence": 0.41,
+        "functions": [],
+        "reason": "No Pset_WallCommon, no material, no rooms: confidence 0.41 < 0.70. A person must classify it.",
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {},
+      "achievement_pct": {},
+      "cost_eur": null,
+      "flags": [
+        "unmapped - needs human review"
+      ],
+      "colour": "grey"
+    }
+  ],
+  "d2": {
+    "options": [],
+    "note": "All required targets met: no alternatives needed."
+  },
+  "ve6": {
+    "status": "final",
+    "text": "Baseline for Design Development. All four external walls (EW-A) meet the required targets; achievement 100.0%. One generic wall is unmapped.",
+    "number_check": {
+      "passed": true,
+      "unmatched": []
+    }
+  },
+  "decision": {
+    "decision": "accept",
+    "reviewer": "Omar",
+    "reason": "Baseline agreed with the client team.",
+    "selected_option": null,
+    "at": "2026-11-14T09:45:00Z"
+  }
+}

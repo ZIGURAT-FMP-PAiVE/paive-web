@@ -1,0 +1,702 @@
+{
+  "_mock": "FIXED TEST DATA for the front end. Values computed once from the sample IFC v01/v02, cost_db.csv, alternatives.csv and project_data.json. Not produced by the trained model or the LLM.",
+  "schema_version": "0.1",
+  "run_id": "run_002",
+  "status": "done",
+  "created_at": "2026-11-21T10:05:00Z",
+  "project": {
+    "id": "pilot-sample",
+    "name": "PAiVE pilot - sample block",
+    "stage": "Design Development",
+    "confidential": false,
+    "currency": "EUR"
+  },
+  "input": {
+    "ifc_file": "typology_v02.ifc",
+    "version_label": "v02",
+    "compare_to": {
+      "run_id": "run_001",
+      "ifc_file": "typology_v01.ifc",
+      "version_label": "v01",
+      "mode": "last-accepted"
+    },
+    "note": "Facade type changed to reduce cost",
+    "uploaded_by": "Omar"
+  },
+  "steps": [
+    {
+      "step": "VE1",
+      "name": "Information",
+      "status": "done",
+      "seconds": 2.1
+    },
+    {
+      "step": "VE2",
+      "name": "Function",
+      "status": "done",
+      "seconds": 0.8
+    },
+    {
+      "step": "VE3",
+      "name": "Creative",
+      "status": "done",
+      "seconds": 1.4
+    },
+    {
+      "step": "VE4",
+      "name": "Evaluation",
+      "status": "done",
+      "seconds": 0.2
+    },
+    {
+      "step": "VE5",
+      "name": "Human review",
+      "status": "waiting"
+    },
+    {
+      "step": "VE6",
+      "name": "Report",
+      "status": "draft"
+    }
+  ],
+  "ve1": {
+    "summary": {
+      "walls_total": 5,
+      "mapped": 4,
+      "out_of_scope": 0,
+      "unmapped": 1,
+      "unmapped_share": 0.2,
+      "max_unmapped_share": 0.25,
+      "changed": 4,
+      "new": 0,
+      "removed": 0,
+      "unchanged": 1,
+      "area_in_scope_m2": 473.3
+    },
+    "missing_fields": [
+      {
+        "guid": "1WFzaRxz5ODP5E0Ai2l$8L",
+        "name": "Generic - 200mm",
+        "missing": [
+          "IsExternal",
+          "ThermalTransmittance",
+          "FireRating",
+          "AcousticRating",
+          "material",
+          "rooms"
+        ]
+      }
+    ],
+    "missing_project_data": [
+      {
+        "function_id": "F-FIRE",
+        "wall_category": "party",
+        "field": "target"
+      },
+      {
+        "function_id": "F-SOUND",
+        "wall_category": "party",
+        "field": "target"
+      },
+      {
+        "function_id": "F-FIRE",
+        "wall_category": "core",
+        "field": "target"
+      }
+    ],
+    "missing_project_data_note": "Not blocking this run: no party or core walls in this model.",
+    "brief_extraction": {
+      "by": "LLM MOCK (once, at project start)",
+      "confirmed_by": "Asiya",
+      "targets": [
+        {
+          "function_id": "F-HEAT",
+          "statement": "Control Heat",
+          "metric": "U-value",
+          "unit": "W/m2K",
+          "direction": "lower_better",
+          "target": 0.28,
+          "required": true,
+          "wall_category": "external"
+        },
+        {
+          "function_id": "F-FIRE",
+          "statement": "Resist Fire",
+          "metric": "fire resistance",
+          "unit": "min",
+          "direction": "higher_better",
+          "target": 60,
+          "required": true,
+          "wall_category": "external"
+        },
+        {
+          "function_id": "F-SOUND",
+          "statement": "Attenuate Sound",
+          "metric": "Rw",
+          "unit": "dB",
+          "direction": "higher_better",
+          "target": 45,
+          "required": false,
+          "wall_category": "external"
+        },
+        {
+          "function_id": "F-ENCL",
+          "statement": "Enclose Space",
+          "metric": "external enclosure",
+          "unit": "bool",
+          "direction": "higher_better",
+          "target": 1,
+          "required": true,
+          "wall_category": "external"
+        }
+      ]
+    }
+  },
+  "weights": {
+    "method": "AHP",
+    "order": [
+      "F-HEAT",
+      "F-FIRE",
+      "F-SOUND",
+      "F-ENCL"
+    ],
+    "weights": {
+      "F-HEAT": 0.467,
+      "F-FIRE": 0.277,
+      "F-SOUND": 0.095,
+      "F-ENCL": 0.16
+    },
+    "consistency_ratio": 0.011,
+    "cr_ok": true,
+    "gate": "F-LOAD (not weighted)"
+  },
+  "d1": {
+    "verdict": "value_down",
+    "verdict_label": "Value down",
+    "reason": "A required function is below target: Control Heat U 0.35 > 0.28 W/m2K on 4 external walls. The design is cheaper, but a cheaper design that misses a required target is a value loss, not a saving (F4).",
+    "F_previous": 1.128,
+    "F_current": 0.977,
+    "R_previous_eur": 86140.6,
+    "R_current_eur": 74781.4,
+    "V_previous": 0.0131,
+    "V_current": 0.01306,
+    "dV_pct": -0.3,
+    "dR_eur": -11359.2,
+    "achievement_previous_pct": 100.0,
+    "achievement_current_pct": 90.7,
+    "required_targets_failed": [
+      {
+        "function_id": "F-HEAT",
+        "statement": "Control Heat",
+        "target": 0.28,
+        "actual": 0.35,
+        "unit": "W/m2K",
+        "walls": 4
+      }
+    ],
+    "decision_band_pct": 2.0,
+    "note": "V = F / R(kEUR). Achievement = weighted share of targets met (capped at 100% per function)."
+  },
+  "walls": [
+    {
+      "guid": "1JfyFZ1uvSMu5s96hAyo8c",
+      "name": "EW-01 North facade",
+      "ifc_class": "IfcWall",
+      "type": "EW-B Brick cavity 60MW",
+      "price_code": "EW-B",
+      "storey": "Level 00",
+      "area_m2": 142.5,
+      "is_external": true,
+      "load_bearing": null,
+      "u_value": 0.35,
+      "fire_min": 120,
+      "rw_db": 52,
+      "change": "changed",
+      "ve2": {
+        "status": "mapped",
+        "wall_category": "external",
+        "category_confidence": 0.97,
+        "functions": [
+          {
+            "function_id": "F-SEP",
+            "statement": "Separate Space",
+            "type": "basic",
+            "probability": 1.0,
+            "source": "always 1"
+          },
+          {
+            "function_id": "F-HEAT",
+            "statement": "Control Heat",
+            "type": "required_secondary",
+            "probability": 0.96
+          },
+          {
+            "function_id": "F-FIRE",
+            "statement": "Resist Fire",
+            "type": "required_secondary",
+            "probability": 0.91
+          },
+          {
+            "function_id": "F-SOUND",
+            "statement": "Attenuate Sound",
+            "type": "required_secondary",
+            "probability": 0.88
+          },
+          {
+            "function_id": "F-ENCL",
+            "statement": "Enclose Space",
+            "type": "required_secondary",
+            "probability": 0.98
+          },
+          {
+            "function_id": "F-LOAD",
+            "statement": "Transfer Load",
+            "type": "gate",
+            "probability": 0.06,
+            "predicted": false
+          }
+        ],
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {
+        "F-HEAT": 0.8,
+        "F-FIRE": 1.2,
+        "F-SOUND": 1.156,
+        "F-ENCL": 1.0
+      },
+      "achievement_pct": {
+        "F-HEAT": 80.0,
+        "F-FIRE": 100.0,
+        "F-SOUND": 100.0,
+        "F-ENCL": 100.0
+      },
+      "cost_eur": 22515.0,
+      "flags": [
+        "F-HEAT below target"
+      ],
+      "colour": "red",
+      "previous": {
+        "price_code": "EW-A",
+        "u_value": 0.25,
+        "rw_db": 53
+      }
+    },
+    {
+      "guid": "3UYKwW_DHTdxitk6bQHN_y",
+      "name": "EW-02 South facade",
+      "ifc_class": "IfcWall",
+      "type": "EW-B Brick cavity 60MW",
+      "price_code": "EW-B",
+      "storey": "Level 00",
+      "area_m2": 138.0,
+      "is_external": true,
+      "load_bearing": null,
+      "u_value": 0.35,
+      "fire_min": 120,
+      "rw_db": 52,
+      "change": "changed",
+      "ve2": {
+        "status": "mapped",
+        "wall_category": "external",
+        "category_confidence": 0.97,
+        "functions": [
+          {
+            "function_id": "F-SEP",
+            "statement": "Separate Space",
+            "type": "basic",
+            "probability": 1.0,
+            "source": "always 1"
+          },
+          {
+            "function_id": "F-HEAT",
+            "statement": "Control Heat",
+            "type": "required_secondary",
+            "probability": 0.96
+          },
+          {
+            "function_id": "F-FIRE",
+            "statement": "Resist Fire",
+            "type": "required_secondary",
+            "probability": 0.91
+          },
+          {
+            "function_id": "F-SOUND",
+            "statement": "Attenuate Sound",
+            "type": "required_secondary",
+            "probability": 0.88
+          },
+          {
+            "function_id": "F-ENCL",
+            "statement": "Enclose Space",
+            "type": "required_secondary",
+            "probability": 0.98
+          },
+          {
+            "function_id": "F-LOAD",
+            "statement": "Transfer Load",
+            "type": "gate",
+            "probability": 0.06,
+            "predicted": false
+          }
+        ],
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {
+        "F-HEAT": 0.8,
+        "F-FIRE": 1.2,
+        "F-SOUND": 1.156,
+        "F-ENCL": 1.0
+      },
+      "achievement_pct": {
+        "F-HEAT": 80.0,
+        "F-FIRE": 100.0,
+        "F-SOUND": 100.0,
+        "F-ENCL": 100.0
+      },
+      "cost_eur": 21804.0,
+      "flags": [
+        "F-HEAT below target"
+      ],
+      "colour": "red",
+      "previous": {
+        "price_code": "EW-A",
+        "u_value": 0.25,
+        "rw_db": 53
+      }
+    },
+    {
+      "guid": "0fhSgz599Ma9Dqsa4dAGgO",
+      "name": "EW-03 East facade",
+      "ifc_class": "IfcWall",
+      "type": "EW-B Brick cavity 60MW",
+      "price_code": "EW-B",
+      "storey": "Level 00",
+      "area_m2": 96.4,
+      "is_external": true,
+      "load_bearing": null,
+      "u_value": 0.35,
+      "fire_min": 120,
+      "rw_db": 52,
+      "change": "changed",
+      "ve2": {
+        "status": "mapped",
+        "wall_category": "external",
+        "category_confidence": 0.97,
+        "functions": [
+          {
+            "function_id": "F-SEP",
+            "statement": "Separate Space",
+            "type": "basic",
+            "probability": 1.0,
+            "source": "always 1"
+          },
+          {
+            "function_id": "F-HEAT",
+            "statement": "Control Heat",
+            "type": "required_secondary",
+            "probability": 0.96
+          },
+          {
+            "function_id": "F-FIRE",
+            "statement": "Resist Fire",
+            "type": "required_secondary",
+            "probability": 0.91
+          },
+          {
+            "function_id": "F-SOUND",
+            "statement": "Attenuate Sound",
+            "type": "required_secondary",
+            "probability": 0.88
+          },
+          {
+            "function_id": "F-ENCL",
+            "statement": "Enclose Space",
+            "type": "required_secondary",
+            "probability": 0.98
+          },
+          {
+            "function_id": "F-LOAD",
+            "statement": "Transfer Load",
+            "type": "gate",
+            "probability": 0.06,
+            "predicted": false
+          }
+        ],
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {
+        "F-HEAT": 0.8,
+        "F-FIRE": 1.2,
+        "F-SOUND": 1.156,
+        "F-ENCL": 1.0
+      },
+      "achievement_pct": {
+        "F-HEAT": 80.0,
+        "F-FIRE": 100.0,
+        "F-SOUND": 100.0,
+        "F-ENCL": 100.0
+      },
+      "cost_eur": 15231.2,
+      "flags": [
+        "F-HEAT below target"
+      ],
+      "colour": "red",
+      "previous": {
+        "price_code": "EW-A",
+        "u_value": 0.25,
+        "rw_db": 53
+      }
+    },
+    {
+      "guid": "1hhRKSgqbOMRY5OnQmqMrj",
+      "name": "EW-04 West facade",
+      "ifc_class": "IfcWall",
+      "type": "EW-B Brick cavity 60MW",
+      "price_code": "EW-B",
+      "storey": "Level 00",
+      "area_m2": 96.4,
+      "is_external": true,
+      "load_bearing": null,
+      "u_value": 0.35,
+      "fire_min": 120,
+      "rw_db": 52,
+      "change": "changed",
+      "ve2": {
+        "status": "mapped",
+        "wall_category": "external",
+        "category_confidence": 0.97,
+        "functions": [
+          {
+            "function_id": "F-SEP",
+            "statement": "Separate Space",
+            "type": "basic",
+            "probability": 1.0,
+            "source": "always 1"
+          },
+          {
+            "function_id": "F-HEAT",
+            "statement": "Control Heat",
+            "type": "required_secondary",
+            "probability": 0.96
+          },
+          {
+            "function_id": "F-FIRE",
+            "statement": "Resist Fire",
+            "type": "required_secondary",
+            "probability": 0.91
+          },
+          {
+            "function_id": "F-SOUND",
+            "statement": "Attenuate Sound",
+            "type": "required_secondary",
+            "probability": 0.88
+          },
+          {
+            "function_id": "F-ENCL",
+            "statement": "Enclose Space",
+            "type": "required_secondary",
+            "probability": 0.98
+          },
+          {
+            "function_id": "F-LOAD",
+            "statement": "Transfer Load",
+            "type": "gate",
+            "probability": 0.06,
+            "predicted": false
+          }
+        ],
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {
+        "F-HEAT": 0.8,
+        "F-FIRE": 1.2,
+        "F-SOUND": 1.156,
+        "F-ENCL": 1.0
+      },
+      "achievement_pct": {
+        "F-HEAT": 80.0,
+        "F-FIRE": 100.0,
+        "F-SOUND": 100.0,
+        "F-ENCL": 100.0
+      },
+      "cost_eur": 15231.2,
+      "flags": [
+        "F-HEAT below target"
+      ],
+      "colour": "red",
+      "previous": {
+        "price_code": "EW-A",
+        "u_value": 0.25,
+        "rw_db": 53
+      }
+    },
+    {
+      "guid": "1WFzaRxz5ODP5E0Ai2l$8L",
+      "name": "Generic - 200mm",
+      "ifc_class": "IfcWall",
+      "type": null,
+      "price_code": null,
+      "storey": "Level 00",
+      "area_m2": 24.0,
+      "is_external": null,
+      "load_bearing": null,
+      "u_value": null,
+      "fire_min": null,
+      "rw_db": null,
+      "change": "unchanged",
+      "ve2": {
+        "status": "unmapped",
+        "wall_category": null,
+        "category_confidence": 0.41,
+        "functions": [],
+        "reason": "No Pset_WallCommon, no material, no rooms: confidence 0.41 < 0.70. A person must classify it.",
+        "model": "ve2_classifier MOCK (no trained model yet)"
+      },
+      "scores": {},
+      "achievement_pct": {},
+      "cost_eur": null,
+      "flags": [
+        "unmapped - needs human review"
+      ],
+      "colour": "grey"
+    }
+  ],
+  "ve3": {
+    "queries": [
+      {
+        "function_id": "F-HEAT",
+        "wall_category": "external",
+        "text": "external wall control heat U <= 0.28 keeps resist fire 60, attenuate sound, enclose space"
+      }
+    ],
+    "embedding_model": "MOCK (local embeddings + Chroma, not built yet)",
+    "min_similarity": 0.5,
+    "excluded": [
+      {
+        "assembly_id": "ALT-03",
+        "price_code": "EW-E",
+        "description": "Precast sandwich panel PIR core",
+        "similarity": 0.71,
+        "reason": "Drops a function the walls perform (Attenuate Sound) - VE3 never offers it"
+      },
+      {
+        "assembly_id": "ALT-04",
+        "price_code": "EW-B",
+        "description": "Brick cavity wall + 60 mm mineral wool + plaster",
+        "similarity": 0.93,
+        "reason": "This is the current design (v02) - not an alternative"
+      }
+    ]
+  },
+  "d2": {
+    "options": [
+      {
+        "rank": 1,
+        "assembly_id": "ALT-01",
+        "price_code": "EW-C",
+        "description": "Concrete block + 140 mm EPS ETICS render",
+        "source": "Sample manufacturer datasheet (placeholder)",
+        "similarity": 0.82,
+        "performance": {
+          "u_value": 0.24,
+          "fire_min": 90,
+          "rw_db": 50
+        },
+        "scores": {
+          "F-HEAT": 1.167,
+          "F-FIRE": 1.2,
+          "F-SOUND": 1.111,
+          "F-ENCL": 1.0
+        },
+        "achievement_pct": {
+          "F-HEAT": 100.0,
+          "F-FIRE": 100.0,
+          "F-SOUND": 100.0,
+          "F-ENCL": 100.0
+        },
+        "meets_all_required_targets": true,
+        "F": 1.144,
+        "R_eur": 70521.7,
+        "V": 0.01622,
+        "dV_vs_current_pct": 24.2,
+        "dR_vs_current_eur": -4259.7,
+        "topsis_closeness": 0.935,
+        "applies_to_guids": [
+          "1JfyFZ1uvSMu5s96hAyo8c",
+          "3UYKwW_DHTdxitk6bQHN_y",
+          "0fhSgz599Ma9Dqsa4dAGgO",
+          "1hhRKSgqbOMRY5OnQmqMrj"
+        ],
+        "why": "Restores Control Heat (U 0.24 <= 0.28) and costs 4,260 EUR less than the current design."
+      },
+      {
+        "rank": 2,
+        "assembly_id": "ALT-02",
+        "price_code": "EW-D",
+        "description": "Steel frame + 160 mm mineral wool + fibre-cement rainscreen",
+        "source": "Sample manufacturer datasheet (placeholder)",
+        "similarity": 0.77,
+        "performance": {
+          "u_value": 0.22,
+          "fire_min": 60,
+          "rw_db": 46
+        },
+        "scores": {
+          "F-HEAT": 1.2,
+          "F-FIRE": 1.0,
+          "F-SOUND": 1.022,
+          "F-ENCL": 1.0
+        },
+        "achievement_pct": {
+          "F-HEAT": 100.0,
+          "F-FIRE": 100.0,
+          "F-SOUND": 100.0,
+          "F-ENCL": 100.0
+        },
+        "meets_all_required_targets": true,
+        "F": 1.096,
+        "R_eur": 80934.3,
+        "V": 0.01354,
+        "dV_vs_current_pct": 3.6,
+        "dR_vs_current_eur": 6152.9,
+        "topsis_closeness": 0.543,
+        "applies_to_guids": [
+          "1JfyFZ1uvSMu5s96hAyo8c",
+          "3UYKwW_DHTdxitk6bQHN_y",
+          "0fhSgz599Ma9Dqsa4dAGgO",
+          "1hhRKSgqbOMRY5OnQmqMrj"
+        ],
+        "why": "Best U-value (0.22) but fire is exactly at target (60 min) and it costs 6,153 EUR more than the current design."
+      }
+    ],
+    "current_design": {
+      "price_code": "EW-B",
+      "F": 0.977,
+      "R_eur": 74781.4,
+      "V": 0.01306,
+      "topsis_closeness": 0.343
+    },
+    "method": "TOPSIS: 4 function scores (AHP weight x 0.5) + cost (0.5)",
+    "stability": {
+      "test": "each weight +/-10%",
+      "trials": 8,
+      "top_option_unchanged": true,
+      "label": "Stable"
+    },
+    "transfer_load_gate": {
+      "applies": false,
+      "note": "No load-bearing wall in this change."
+    }
+  },
+  "ve6": {
+    "status": "draft",
+    "llm": "MOCK text (written as the LLM would, from VE4 numbers only)",
+    "text": "Version v02 replaces the external wall type EW-A with EW-B on all four facades (473.3 m2). The wall cost falls by 11,359 EUR (-13.2%), but the U-value rises from 0.25 to 0.35 W/m2K, above the required target of 0.28 W/m2K, so Control Heat is no longer met. PAiVE therefore reports value down (achievement 100.0% -> 90.7%, value change -0.3%). The best-ranked option is ALT-01 (concrete block + 140 mm EPS ETICS, U 0.24, 90 min, Rw 50 dB): it meets every required target and costs 4,260 EUR less than v02. The ranking holds when each client weight is moved by +/-10%. One wall (Generic - 200mm) has no data and must be classified by a person before the next run.",
+    "number_check": {
+      "passed": true,
+      "numbers_in_text": 22,
+      "unmatched": []
+    }
+  },
+  "decision": null
+}

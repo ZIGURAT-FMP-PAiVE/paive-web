@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   appendIfcVersion,
   clearProjectIfcVersions,
+  activeIfcVersion,
   ifcVersionLabel,
   initialProjects,
+  previousUploadedIfcVersion,
   resetProjectToDefaults,
   storeProjectCostFile,
 } from "./projects";
@@ -38,6 +40,18 @@ describe("project cost file", () => {
     expect(next.costData?.rows).toHaveLength(1);
     expect(next.config.costSource).toBe("verona_costs.csv");
     expect(project.costData).toBeNull();
+  });
+});
+
+describe("IFC version compare", () => {
+  it("picks the latest uploaded file before the active version", () => {
+    let project = appendIfcVersion(initialProjects()[2]!, new File(["a"], "v1.ifc"), "d1");
+    project = appendIfcVersion(project, new File(["b"], "v2.ifc"), "d2");
+    const current = activeIfcVersion(project)!;
+    const prev = previousUploadedIfcVersion(project, current);
+    expect(current.version).toBe(3);
+    expect(prev?.version).toBe(2);
+    expect(prev?.name).toBe("v1.ifc");
   });
 });
 
