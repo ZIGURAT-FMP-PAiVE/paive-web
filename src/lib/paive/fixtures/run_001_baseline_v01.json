@@ -435,7 +435,7 @@
   },
   "ve6": {
     "status": "final",
-    "text": "Baseline for Design Development. All four external walls (EW-A) meet the required targets; achievement 100.0%. One generic wall is unmapped.",
+    "text": "Baseline for Design Development. All external walls (EW-A) meet the required targets; achievement 100.0%.",
     "number_check": {
       "passed": true,
       "unmatched": []

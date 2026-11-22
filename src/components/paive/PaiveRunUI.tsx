@@ -187,11 +187,16 @@ export function PaiveWallsTable({
   walls,
   selectedGuid,
   onSelect,
+  emptyMessage = "No affected elements on the first model version. Upload a later version to see changes.",
 }: {
   walls: PaiveWall[];
   selectedGuid: string | null;
   onSelect: (guid: string) => void;
+  emptyMessage?: string;
 }) {
+  if (!walls.length) {
+    return <p className="text-base leading-relaxed text-muted-foreground">{emptyMessage}</p>;
+  }
   return (
     <div>
       <Table className="min-w-[720px] text-base">

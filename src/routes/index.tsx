@@ -65,6 +65,7 @@ import {
   PaiveWallsTable,
   VeReportDraft,
 } from "@/components/paive/PaiveRunUI";
+import { affectedWallsForRun } from "@/lib/paive/affectedElements";
 import { decide, getRun, paiveRun } from "@/lib/paive/fakeBackend";
 import type { DecideResult, PaiveLogEntry, PaiveRun } from "@/lib/paive/types";
 
@@ -245,7 +246,7 @@ function Workflow({
     setDecideResult(null);
     setDecisionReason("");
     setVe5Accepted(false);
-    const firstWall = run.walls?.[0]?.guid ?? null;
+    const firstWall = affectedWallsForRun(run)[0]?.guid ?? null;
     setWallGuid(firstWall);
     setSel(firstWall);
     const firstOpt = run.d2?.options?.[0]?.assembly_id ?? null;
@@ -253,6 +254,7 @@ function Workflow({
   }, [ifcFile?.name, project.activeIfcVersion]);
 
   const useFixtureUi = Boolean(fixtureRun && ifcFile);
+  const fixtureAffectedWalls = affectedWallsForRun(fixtureRun);
   const viewerSelection = useFixtureUi && wallGuid ? wallGuid : sel;
   /** Legacy §4 “Selected: Option X” only when §3 shows demo A/B/C cards (blocked run). */
   const legacyOptionSelectionActive = Boolean(ifcFile && fixtureRun?.status === "blocked");
@@ -487,7 +489,7 @@ function Workflow({
               <Card>
                 <SectionTitle>Affected Elements</SectionTitle>
                 <PaiveWallsTable
-                  walls={fixtureRun?.walls ?? []}
+                  walls={fixtureAffectedWalls}
                   selectedGuid={wallGuid}
                   onSelect={(g) => {
                     setWallGuid(g);
@@ -512,14 +514,14 @@ function Workflow({
               }}
               info={info}
               paiveWall={
-                fixtureRun?.walls?.find(
+                fixtureAffectedWalls.find(
                   (w) =>
                     (info != null && (w.guid === info.guid || w.guid === info.expressId)) ||
                     (viewerSelection != null &&
                       (w.guid === viewerSelection || String(w.guid) === viewerSelection)),
                 ) ?? null
               }
-              affectedWalls={fixtureRun?.walls?.map((w) => ({ colour: w.colour, guid: w.guid }))}
+              affectedWalls={fixtureAffectedWalls.map((w) => ({ colour: w.colour, guid: w.guid }))}
             />
           </div>
         </section>
