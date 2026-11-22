@@ -1,0 +1,12 @@
+{
+  "request": {
+    "run_id": "run_002",
+    "decision": "reject",
+    "reviewer": "Valentina",
+    "reason": ""
+  },
+  "error": {
+    "code": "reason_required",
+    "message": "A reason is required for every decision."
+  }
+}
