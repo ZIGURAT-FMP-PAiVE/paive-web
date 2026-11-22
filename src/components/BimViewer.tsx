@@ -29,6 +29,7 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
   const onModelLoadedRef = useRef(onModelLoaded);
   onModelLoadedRef.current = onModelLoaded;
   const loadRef = useRef<(f: File) => Promise<void>>(async () => {});
+  const clearViewerRef = useRef<() => void>(() => {});
   const pendingRef = useRef<File | null>(null);
   const viewerReadyRef = useRef(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -100,19 +101,19 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
 
       const demoGroup = [...meshes];
       let ifcGroup: InstanceType<typeof THREE.Group> | null = null;
-      const showDemo = () => {
-        demoGroup.forEach((m) => (m.visible = true));
+      const showEmpty = () => {
+        demoGroup.forEach((m) => (m.visible = false));
         if (ifcGroup) {
           scene.remove(ifcGroup);
           ifcGroup = null;
         }
         meshes.length = 0;
-        meshes.push(...demoGroup);
         inspectRef.current = (sid) => {
           if (!sid) onInspectRef.current?.(null);
         };
-        onModelLoadedRef.current?.({ elementCount: demoGroup.length, ifcWallCount: 0, buildingAreaM2: 0 });
+        setStatus(null);
       };
+      clearViewerRef.current = showEmpty;
 
       loadRef.current = async (f: File) => {
         setStatus("Loading IFC model…");
@@ -222,8 +223,8 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
         const p = pendingRef.current;
         pendingRef.current = null;
         void loadRef.current(p);
-      } else if (!file) {
-        showDemo();
+      } else {
+        showEmpty();
       }
 
       const ray = new THREE.Raycaster();
@@ -264,7 +265,11 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
 
   useEffect(() => { selectRef.current(selectedId); inspectRef.current(selectedId); }, [selectedId]);
   useEffect(() => {
-    if (!file) return;
+    if (!file) {
+      pendingRef.current = null;
+      if (viewerReadyRef.current) clearViewerRef.current();
+      return;
+    }
     pendingRef.current = file;
     if (viewerReadyRef.current) void loadRef.current(file);
   }, [file]);
@@ -272,6 +277,11 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
   return (
     <div className="relative h-full w-full">
       <div ref={mountRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
+      {!file && !status && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-base text-muted-foreground">
+          Upload an IFC model to view it here.
+        </div>
+      )}
       {status && <div className="absolute inset-x-0 top-4 mx-auto w-fit rounded-lg bg-background/90 px-4 py-2 text-sm text-foreground">{status}</div>}
     </div>
   );

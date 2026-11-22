@@ -363,7 +363,7 @@ function Workflow({
                       <Box className="h-6 w-6 text-primary" />
                       <h3 className="text-[18px] font-semibold">BIM Model Viewer</h3>
                     </div>
-                    <Badge tone="muted">{ifcFile ? ifcFile.name : "Demo model"}</Badge>
+                    <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
                   </div>
                   <div className="relative h-[700px]">
                     <BimViewer
@@ -495,7 +495,7 @@ function Workflow({
               <div className="glass overflow-hidden">
                 <div className="flex items-center justify-between border-b border-border px-6 py-4">
                   <div className="flex items-center gap-3"><Box className="h-6 w-6 text-primary" /><h3 className="text-[18px] font-semibold">BIM Model Viewer</h3></div>
-                  <Badge tone="muted">{ifcFile ? ifcFile.name : "Demo model"}</Badge>
+                  <Badge tone="muted">{ifcFile ? ifcFile.name : "No model"}</Badge>
                 </div>
                 <div className="relative h-[700px]">
                   <BimViewer
