@@ -14,7 +14,7 @@ import {
   ifcVersionLabel,
   resetProjectToDefaults,
   PROJECT_STATUSES,
-  setIfcVersionElementCount,
+  setIfcVersionModelStats,
   type Project,
   type ProjectCostData,
   type ProjectStatus,
@@ -101,13 +101,13 @@ function Workflow({
   onStoreIfc,
   onStoreCost,
   onClearIfcVersions,
-  onIfcElementCount,
+  onIfcModelStats,
 }: {
   project: Project;
   onStoreIfc: (file: File) => void;
   onStoreCost: (file: File, rows: CostRow[]) => void;
   onClearIfcVersions: () => void;
-  onIfcElementCount: (version: number, elementCount: number) => void;
+  onIfcModelStats: (version: number, stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
 }) {
   const currentIfc = activeIfcVersion(project);
   const previousIfc = previousUploadedIfcVersion(project, currentIfc);
@@ -122,7 +122,6 @@ function Workflow({
   const [drag, setDrag] = useState(false);
   const [info, setInfo] = useState<IfcInfo | null>(null);
   const eur = (n: number) => `€${Math.round(n).toLocaleString("en-US")}`;
-  const totalBudget = costRows.reduce((a, r) => a + r.total, 0);
   const handleCost = async (f?: File) => {
     if (!f) return;
     const loaded = await loadProjectCostFile(f);
@@ -193,6 +192,20 @@ function Workflow({
   const elementCountLabel = (() => {
     if (currentIfc?.elementCount != null) return currentIfc.elementCount.toLocaleString("en-US");
     if (ifcElementCount != null) return ifcElementCount.toLocaleString("en-US");
+    if (ifcFile) return "Loading…";
+    return "—";
+  })();
+
+  const costItemsLabel = (() => {
+    if (currentIfc?.ifcWallCount != null) return currentIfc.ifcWallCount.toLocaleString("en-US");
+    if (ifcFile) return "Loading…";
+    return "—";
+  })();
+
+  const buildingAreaLabel = (() => {
+    if (currentIfc?.buildingAreaM2 != null) {
+      return `${currentIfc.buildingAreaM2.toLocaleString("en-US", { maximumFractionDigits: 1 })} m²`;
+    }
     if (ifcFile) return "Loading…";
     return "—";
   })();
@@ -288,7 +301,7 @@ function Workflow({
                 ["Stage", project.config.stage],
                 ["Model Version", currentIfc ? `${ifcVersionLabel(currentIfc.version)} · ${currentIfc.uploadedAt}` : "—"],
                 ["Number of Elements", elementCountLabel],
-                ["Building Area", "18,450 m²"],
+                ["Building Area", buildingAreaLabel],
                 [
                   "Cost Dataset",
                   costDataset ? (
@@ -301,8 +314,7 @@ function Workflow({
                     "—"
                   ),
                 ],
-                ["Cost Items", project.costData ? String(costRows.length) : "—"],
-                ["Total Budget", project.costData ? eur(totalBudget) : "€ 42.8 M"],
+                ["Cost Items", costItemsLabel],
               ].map(([k, v]) => (
                 <div key={k as string} className="flex items-center justify-between gap-4 border-b border-border pb-4 last:border-0">
                   <dt className="shrink-0 text-muted-foreground">{k}</dt>
@@ -363,9 +375,9 @@ function Workflow({
                       }}
                       file={ifcFile}
                       onInspect={setInfo}
-                      onModelLoaded={({ elementCount }) => {
-                        setIfcElementCount(elementCount);
-                        onIfcElementCount(project.activeIfcVersion, elementCount);
+                      onModelLoaded={(stats) => {
+                        setIfcElementCount(stats.elementCount);
+                        if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
                       }}
                     />
                     <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">
@@ -492,9 +504,9 @@ function Workflow({
                     onSelect={setSel}
                     file={ifcFile}
                     onInspect={setInfo}
-                    onModelLoaded={({ elementCount }) => {
-                      setIfcElementCount(elementCount);
-                      onIfcElementCount(project.activeIfcVersion, elementCount);
+                    onModelLoaded={(stats) => {
+                      setIfcElementCount(stats.elementCount);
+                      if (ifcFile) onIfcModelStats(project.activeIfcVersion, stats);
                     }}
                   />
                   <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-background/80 px-3 py-2 text-base text-muted-foreground">Drag to orbit · Scroll to zoom · Click to select</div>
@@ -939,8 +951,8 @@ function Index() {
                 onStoreIfc={(file) => setProjects((ps) => ps.map((p) => (p.id === active.id ? appendIfcVersion(p, file) : p)))}
                 onStoreCost={storeCostOnProject}
                 onClearIfcVersions={() => void clearActiveIfcVersions()}
-                onIfcElementCount={(version, elementCount) =>
-                  setProjects((ps) => ps.map((p) => (p.id === active.id ? setIfcVersionElementCount(p, version, elementCount) : p)))
+                onIfcModelStats={(version, stats) =>
+                  setProjects((ps) => ps.map((p) => (p.id === active.id ? setIfcVersionModelStats(p, version, stats) : p)))
                 }
               />
             </div>

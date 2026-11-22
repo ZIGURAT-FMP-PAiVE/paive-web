@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { footprintAreaM2, measureBuildingAreaM2 } from "@/lib/ifcBuildingArea";
 
 export type BimElement = { id: string; type: string };
 
@@ -10,7 +11,7 @@ type Props = {
   onSelect: (id: string) => void;
   file?: File | null;
   onInspect?: (info: IfcInfo | null) => void;
-  onModelLoaded?: (stats: { elementCount: number }) => void;
+  onModelLoaded?: (stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
 };
 
 const val = (x: unknown): string => {
@@ -110,7 +111,7 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
         inspectRef.current = (sid) => {
           if (!sid) onInspectRef.current?.(null);
         };
-        onModelLoadedRef.current?.({ elementCount: demoGroup.length });
+        onModelLoadedRef.current?.({ elementCount: demoGroup.length, ifcWallCount: 0, buildingAreaM2: 0 });
       };
 
       loadRef.current = async (f: File) => {
@@ -201,8 +202,15 @@ export function BimViewer({ selectedId, onSelect, file, onInspect, onModelLoaded
           camera.near = size / 1000; camera.far = size * 20; camera.updateProjectionMatrix();
           camera.position.copy(center).add(new THREE.Vector3(size * 0.6, size * 0.45, size * 0.6));
           grid.position.y = box.min.y;
+          const wallIds = api.GetLineIDsWithType(modelID, WebIFC.IFCWALL);
+          const measured = measureBuildingAreaM2(api, modelID, WebIFC.IFCQUANTITYAREA);
+          const buildingAreaM2 = measured ?? footprintAreaM2(box);
           setStatus(null);
-          onModelLoadedRef.current?.({ elementCount: elementIds.size });
+          onModelLoadedRef.current?.({
+            elementCount: elementIds.size,
+            ifcWallCount: wallIds.size(),
+            buildingAreaM2,
+          });
           onSelectRef.current(String(newMeshes[0]!.userData['id']));
         } catch (err) {
           console.error(err);

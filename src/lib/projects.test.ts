@@ -7,6 +7,7 @@ import {
   initialProjects,
   previousUploadedIfcVersion,
   resetProjectToDefaults,
+  setIfcVersionModelStats,
   storeProjectCostFile,
 } from "./projects";
 
@@ -40,6 +41,18 @@ describe("project cost file", () => {
     expect(next.costData?.rows).toHaveLength(1);
     expect(next.config.costSource).toBe("verona_costs.csv");
     expect(project.costData).toBeNull();
+  });
+});
+
+describe("IFC model stats", () => {
+  it("stores element and IfcWall counts on a version", () => {
+    const project = appendIfcVersion(initialProjects()[0]!, new File(["ifc"], "walls.ifc"));
+    const active = project.activeIfcVersion;
+    const next = setIfcVersionModelStats(project, active, { elementCount: 120, ifcWallCount: 5, buildingAreaM2: 473.3 });
+    const v = next.ifcVersions.find((x) => x.version === active)!;
+    expect(v.elementCount).toBe(120);
+    expect(v.ifcWallCount).toBe(5);
+    expect(v.buildingAreaM2).toBe(473.3);
   });
 });
 

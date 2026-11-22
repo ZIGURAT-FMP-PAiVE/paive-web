@@ -7,7 +7,12 @@ const DB_VERSION = 1;
 const FILE_STORE = "files";
 const WORKSPACE_KEY = "paive.workspace.v1";
 
-type PersistedIfcVersion = Omit<IfcVersion, "file"> & { hasFile: boolean; elementCount?: number | null };
+type PersistedIfcVersion = Omit<IfcVersion, "file"> & {
+  hasFile: boolean;
+  elementCount?: number | null;
+  ifcWallCount?: number | null;
+  buildingAreaM2?: number | null;
+};
 type PersistedCostData = Omit<ProjectCostData, "file"> & { hasFile: boolean };
 type PersistedProject = Omit<Project, "ifcVersions" | "costData"> & {
   ifcVersions: PersistedIfcVersion[];
@@ -126,7 +131,13 @@ export async function deleteProjectIfcFiles(projectId: string): Promise<void> {
 
 function serializeIfcVersion(v: IfcVersion): PersistedIfcVersion {
   const { file, ...rest } = v;
-  return { ...rest, hasFile: file != null, elementCount: v.elementCount ?? null };
+  return {
+    ...rest,
+    hasFile: file != null,
+    elementCount: v.elementCount ?? null,
+    ifcWallCount: v.ifcWallCount ?? null,
+    buildingAreaM2: v.buildingAreaM2 ?? null,
+  };
 }
 
 function serializeCostData(c: ProjectCostData | null): PersistedCostData | null {
@@ -150,7 +161,13 @@ function serializeBaseline(b: ProjectBaseline): PersistedBaseline {
 async function hydrateIfcVersion(projectId: string, v: PersistedIfcVersion): Promise<IfcVersion> {
   const file = v.hasFile ? await getFile(ifcFileKey(projectId, v.version)) : null;
   const { hasFile: _h, ...rest } = v;
-  return { ...rest, file, elementCount: v.elementCount ?? null };
+  return {
+    ...rest,
+    file,
+    elementCount: v.elementCount ?? null,
+    ifcWallCount: v.ifcWallCount ?? null,
+    buildingAreaM2: v.buildingAreaM2 ?? null,
+  };
 }
 
 async function hydrateCostData(projectId: string, c: PersistedCostData | null): Promise<ProjectCostData | null> {

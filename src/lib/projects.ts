@@ -25,6 +25,8 @@ export type IfcVersion = {
   uploadedAt: string;
   file: File | null;
   elementCount: number | null;
+  ifcWallCount: number | null;
+  buildingAreaM2: number | null;
 };
 
 export const PROJECT_STATUSES = ["Analyzing", "On track", "Draft"] as const;
@@ -108,10 +110,18 @@ export function clearProjectIfcVersions(project: Project): Project {
   return { ...project, ifc: "", ifcVersions: [], activeIfcVersion: 0 };
 }
 
-export function setIfcVersionElementCount(project: Project, version: number, elementCount: number): Project {
+export function setIfcVersionModelStats(
+  project: Project,
+  version: number,
+  stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number },
+): Project {
   return {
     ...project,
-    ifcVersions: project.ifcVersions.map((v) => (v.version === version ? { ...v, elementCount } : v)),
+    ifcVersions: project.ifcVersions.map((v) =>
+      v.version === version
+        ? { ...v, elementCount: stats.elementCount, ifcWallCount: stats.ifcWallCount, buildingAreaM2: stats.buildingAreaM2 }
+        : v,
+    ),
   };
 }
 
@@ -124,6 +134,8 @@ export function appendIfcVersion(project: Project, file: File, uploadedAt = form
     uploadedAt,
     file,
     elementCount: null,
+    ifcWallCount: null,
+    buildingAreaM2: null,
   };
   return {
     ...project,
@@ -137,7 +149,7 @@ function baselineIfc(name: string, uploadedAt: string): Pick<Project, "ifc" | "i
   return {
     ifc: name,
     activeIfcVersion: 1,
-    ifcVersions: [{ version: 1, name, sizeLabel: "—", uploadedAt, file: null, elementCount: null }],
+    ifcVersions: [{ version: 1, name, sizeLabel: "—", uploadedAt, file: null, elementCount: null, ifcWallCount: null, buildingAreaM2: null }],
   };
 }
 
