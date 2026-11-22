@@ -519,7 +519,7 @@ function Workflow({
                       (w.guid === viewerSelection || String(w.guid) === viewerSelection)),
                 ) ?? null
               }
-              affectedWalls={fixtureRun?.walls?.map((w) => ({ colour: w.colour }))}
+              affectedWalls={fixtureRun?.walls?.map((w) => ({ colour: w.colour, guid: w.guid }))}
             />
           </div>
         </section>

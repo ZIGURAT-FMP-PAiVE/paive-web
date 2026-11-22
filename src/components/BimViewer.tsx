@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { assignWallsByCardinalCycle, type FootprintBox, type WallCenter } from "@/lib/ifcWallAssignment";
 import { footprintAreaM2, measureBuildingAreaM2 } from "@/lib/ifcBuildingArea";
 import { wallColourEmissiveHex, wallColourHex } from "@/lib/veSemantics";
 
@@ -12,7 +13,7 @@ export type BimViewerHandle = {
   resetView: () => void;
 };
 
-export type AffectedWallHighlight = { colour: string };
+export type AffectedWallHighlight = { colour: string; guid?: string };
 
 type Props = {
   selectedId: string | null;
@@ -20,19 +21,9 @@ type Props = {
   file?: File | null;
   onInspect?: (info: IfcInfo | null) => void;
   onModelLoaded?: (stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
-  /** Map random IFC walls to PAiVE wall health colours (same count as table). */
+  /** Map IFC walls to PAiVE wall health colours (same count as table). */
   affectedWalls?: AffectedWallHighlight[];
 };
-
-function pickRandomIds(ids: string[], count: number): string[] {
-  if (count <= 0 || ids.length === 0) return [];
-  const pool = [...ids];
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j]!, pool[i]!];
-  }
-  return pool.slice(0, Math.min(count, pool.length));
-}
 
 const val = (x: unknown): string => {
   if (x == null) return "";
@@ -68,8 +59,12 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
   const mountRef = useRef<HTMLDivElement>(null);
   const paintMeshesRef = useRef<(id: string | null) => void>(() => {});
   const rebuildAffectedRef = useRef<() => void>(() => {});
+  const focusOnElementRef = useRef<(id: string | null) => void>(() => {});
+  const resolveExpressIdRef = useRef<(id: string | null) => string | null>(() => null);
   const affectedWallsRef = useRef(affectedWalls);
   affectedWallsRef.current = affectedWalls;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
@@ -180,20 +175,72 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
       add("D-11", 0xb45309, [1.4, 2.4, 0.4], [-3, 1.4, 6]);
 
       const wallPool: string[] = [];
+      const wallCenterCache = new Map<string, WallCenter>();
+      const footprintBox: FootprintBox = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
       const affectedIdToColour = new Map<string, string>();
+      const guidToExpressId = new Map<string, string>();
+      const expressToGuid = new Map<string, string>();
+
+      const computeWallCenters = () => {
+        wallCenterCache.clear();
+        const wallSet = new Set(wallPool);
+        const boxes = new Map<string, InstanceType<typeof THREE.Box3>>();
+        for (const m of meshes) {
+          const id = m.userData["id"] as string;
+          if (!wallSet.has(id)) continue;
+          const piece = new THREE.Box3().setFromObject(m);
+          const existing = boxes.get(id);
+          if (existing) existing.union(piece);
+          else boxes.set(id, piece);
+        }
+        for (const [id, b] of boxes) {
+          const c = b.getCenter(new THREE.Vector3());
+          wallCenterCache.set(id, { id, x: c.x, z: c.z });
+        }
+      };
+
+      const refreshFootprint = () => {
+        if (!meshes.length) return;
+        const box = new THREE.Box3();
+        for (const m of meshes) box.expandByObject(m);
+        footprintBox.minX = box.min.x;
+        footprintBox.maxX = box.max.x;
+        footprintBox.minZ = box.min.z;
+        footprintBox.maxZ = box.max.z;
+      };
+
+      const resolveExpressId = (selectionKey: string | null): string | null => {
+        if (!selectionKey) return null;
+        return guidToExpressId.get(selectionKey) ?? (/^\d+$/.test(selectionKey) ? selectionKey : null);
+      };
+
       const rebuildAffectedHighlights = () => {
         affectedIdToColour.clear();
+        guidToExpressId.clear();
+        expressToGuid.clear();
         const specs = affectedWallsRef.current;
         if (!specs?.length || !wallPool.length) return;
-        const picked = pickRandomIds(wallPool, specs.length);
-        picked.forEach((id, i) => affectedIdToColour.set(id, specs[i]!.colour));
+        computeWallCenters();
+        refreshFootprint();
+        const picked = assignWallsByCardinalCycle(wallPool, wallCenterCache, footprintBox, specs.length);
+        picked.forEach((expressId, i) => {
+          const spec = specs[i];
+          if (!spec) return;
+          affectedIdToColour.set(expressId, spec.colour);
+          if (spec.guid) {
+            guidToExpressId.set(spec.guid, expressId);
+            expressToGuid.set(expressId, spec.guid);
+          }
+        });
       };
-      const paintMeshes = (focusId: string | null) => {
+
+      const paintMeshes = (selectionKey: string | null) => {
+        const focusExpressId = resolveExpressId(selectionKey);
         meshes.forEach((m) => {
           const mat = m.material as InstanceType<typeof THREE.MeshStandardMaterial>;
           const id = m.userData["id"] as string;
           const veCol = affectedIdToColour.get(id);
-          if (focusId && id === focusId) {
+          if (focusExpressId && id === focusExpressId) {
             mat.color.setHex(0x00b3ff);
             mat.emissive.setHex(0x003a55);
           } else if (veCol) {
@@ -205,8 +252,30 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
           }
         });
       };
+
+      const focusOnElement = (selectionKey: string | null) => {
+        const expressId = resolveExpressId(selectionKey);
+        if (!expressId) return;
+        const parts = meshes.filter((m) => (m.userData["id"] as string) === expressId);
+        if (!parts.length) return;
+        const box = new THREE.Box3();
+        for (const m of parts) box.expandByObject(m);
+        if (box.isEmpty()) return;
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3()).length();
+        controls.target.copy(center);
+        const offset = Math.max(size * 1.15, 2.5);
+        camera.position.copy(center).add(new THREE.Vector3(offset * 0.65, offset * 0.5, offset * 0.65));
+        camera.near = Math.max(size / 80, 0.1);
+        camera.far = Math.max(size * 30, camera.far);
+        camera.updateProjectionMatrix();
+        controls.update();
+      };
+
       rebuildAffectedRef.current = rebuildAffectedHighlights;
       paintMeshesRef.current = paintMeshes;
+      focusOnElementRef.current = focusOnElement;
+      resolveExpressIdRef.current = resolveExpressId;
 
       const demoGroup = [...meshes];
       let ifcGroup: InstanceType<typeof THREE.Group> | null = null;
@@ -218,7 +287,10 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         }
         meshes.length = 0;
         wallPool.length = 0;
+        wallCenterCache.clear();
         affectedIdToColour.clear();
+        guidToExpressId.clear();
+        expressToGuid.clear();
         inspectRef.current = (sid) => {
           if (!sid) onInspectRef.current?.(null);
         };
@@ -327,10 +399,9 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
             }
           }
           rebuildAffectedHighlights();
-          const firstHighlight = affectedIdToColour.keys().next().value as string | undefined;
-          const pick = firstHighlight ?? String(newMeshes[0]!.userData["id"]);
-          paintMeshes(pick);
-          onSelectRef.current(pick);
+          const activeSelection = selectedIdRef.current;
+          paintMeshes(activeSelection);
+          focusOnElement(activeSelection);
           const measured = measureBuildingAreaM2(api, modelID, WebIFC.IFCQUANTITYAREA);
           const buildingAreaM2 = measured ?? footprintAreaM2(box);
           setStatus(null);
@@ -364,7 +435,10 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         v.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
         ray.setFromCamera(v, camera);
         const hit = ray.intersectObjects(meshes, false)[0];
-        if (hit) onSelectRef.current(hit.object.userData['id']);
+        if (hit) {
+          const expressId = hit.object.userData["id"] as string;
+          onSelectRef.current(expressToGuid.get(expressId) ?? expressId);
+        }
       };
       renderer.domElement.addEventListener("pointerdown", pd);
       renderer.domElement.addEventListener("pointerup", pu);
@@ -393,12 +467,17 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
   }, []);
 
   useEffect(() => {
+    const expressId = resolveExpressIdRef.current(selectedId);
     paintMeshesRef.current(selectedId);
-    inspectRef.current(selectedId);
+    if (expressId) inspectRef.current(expressId);
+    else if (selectedId && /^\d+$/.test(selectedId)) inspectRef.current(selectedId);
+    else inspectRef.current(null);
+    focusOnElementRef.current(selectedId);
   }, [selectedId]);
   useEffect(() => {
     rebuildAffectedRef.current();
     paintMeshesRef.current(selectedId);
+    focusOnElementRef.current(selectedId);
   }, [affectedWalls, selectedId]);
   useEffect(() => {
     if (!file) {
