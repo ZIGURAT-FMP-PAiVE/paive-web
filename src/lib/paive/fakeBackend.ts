@@ -15,12 +15,27 @@ const RUNS: Record<string, PaiveRun> = {
 
 let logEntries: PaiveLogEntry[] = [];
 
+function fixtureVersionFromFilename(ifcPath: string): number | undefined {
+  const m = ifcPath.toLowerCase().match(/v0*(\d+)/);
+  return m ? parseInt(m[1]!, 10) : undefined;
+}
+
 /** Upload + run (fixture router). Real API: same signature. */
-export function paiveRun(ifcPath: string, _projectId = "pilot-sample", _compareTo = "last-accepted", _note = ""): string {
+export function paiveRun(
+  ifcPath: string,
+  _projectId = "pilot-sample",
+  _compareTo = "last-accepted",
+  _note = "",
+  activeIfcVersion?: number,
+): string {
   const name = ifcPath.toLowerCase();
+  if (name.includes("no_psets") || name.includes("blocked")) return "run_003";
+
+  const version = activeIfcVersion ?? fixtureVersionFromFilename(ifcPath);
+  if (version != null) return version <= 1 ? "run_001" : "run_002";
+
   if (name.includes("v01")) return "run_001";
-  if (name.includes("v02")) return "run_002";
-  return "run_003";
+  return "run_002";
 }
 
 export function getRun(runId: string): PaiveRun {

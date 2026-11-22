@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 import { decide, getLog, getRun, paiveRun } from "./fakeBackend";
 
 describe("paive fakeBackend", () => {
-  it("routes runs by filename", () => {
+  it("routes runs by filename and active version", () => {
     expect(paiveRun("typology_v01.ifc")).toBe("run_001");
     expect(paiveRun("typology_v02.ifc")).toBe("run_002");
-    expect(paiveRun("other.ifc")).toBe("run_003");
+    expect(paiveRun("typology_v03.ifc")).toBe("run_002");
+    expect(paiveRun("typology_v04.ifc")).toBe("run_002");
+    expect(paiveRun("typology_v03_no_psets.ifc")).toBe("run_003");
+    expect(paiveRun("other.ifc")).toBe("run_002");
+    expect(paiveRun("wall.ifc", "pilot-sample", "last-accepted", "", 1)).toBe("run_001");
+    expect(paiveRun("wall.ifc", "pilot-sample", "last-accepted", "", 3)).toBe("run_002");
   });
 
   it("returns run_002 value down fixture", () => {

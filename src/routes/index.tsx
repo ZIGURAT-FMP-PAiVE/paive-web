@@ -240,7 +240,7 @@ function Workflow({
       setVe5Accepted(false);
       return;
     }
-    const runId = paiveRun(ifcFile.name);
+    const runId = paiveRun(ifcFile.name, project.id, "last-accepted", "", project.activeIfcVersion);
     const run = getRun(runId);
     setFixtureRun(run);
     setDecideResult(null);
