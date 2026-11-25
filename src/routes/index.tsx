@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { clearDemoSession, isDemoAuthenticated } from "@/lib/demoAuth";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { clearDemoSession, getDemoUserEmail, isDemoAuthenticated } from "@/lib/demoAuth";
+import { projectAccess, ROLE_LABELS, type ProjectAccess } from "@/lib/projectPermissions";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Upload, FileBox, FileSpreadsheet, CheckCircle2, Download, Save, Check, RotateCcw, X, Layers } from "lucide-react";
@@ -22,12 +23,14 @@ import {
   uploadedIfcVersions,
   clearProjectIfcVersions,
   defaultProjectConfig,
+  defaultProjectMembers,
   ifcVersionLabel,
   resetProjectToDefaults,
   PROJECT_STATUSES,
   setIfcVersionModelStats,
   type Project,
   type ProjectCostData,
+  type ProjectMember,
   type ProjectStatus,
 } from "@/lib/projects";
 import { applyProjectCostFile, loadProjectCostFile } from "@/lib/projectCost";
@@ -186,8 +189,13 @@ function IfcVersionHistoryCard({ project }: { project: Project }) {
   );
 }
 
+function viewerDenied() {
+  toast.error("Viewer access", { description: "A BIM Manager / Admin must perform this action." });
+}
+
 function Workflow({
   project,
+  access,
   onStoreIfc,
   onStoreCost,
   onClearIfcVersions,
@@ -196,6 +204,7 @@ function Workflow({
   onDecisionLogged,
 }: {
   project: Project;
+  access: ProjectAccess;
   onStoreIfc: (file: File) => void;
   onStoreCost: (file: File, rows: CostRow[]) => void;
   onClearIfcVersions: () => void;
@@ -203,6 +212,11 @@ function Workflow({
   decisionLog: PaiveLogEntry[];
   onDecisionLogged: (entry: PaiveLogEntry) => void;
 }) {
+  const canUploadIfc = access.can("upload_ifc");
+  const canUploadCost = access.can("upload_cost");
+  const canClearIfc = access.can("clear_ifc");
+  const canSubmitDecision = access.can("submit_decision");
+  const canDownloadReport = access.can("download_report");
   const currentIfc = activeIfcVersion(project);
   const ifcFile = currentIfc?.file ?? null;
   const compareIfcFile =
@@ -216,6 +230,10 @@ function Workflow({
   const eur = (n: number) => `€${Math.round(n).toLocaleString("en-US")}`;
   const handleCost = async (f?: File) => {
     if (!f) return;
+    if (!canUploadCost) {
+      viewerDenied();
+      return;
+    }
     const loaded = await loadProjectCostFile(f);
     if (!loaded) return;
     onStoreCost(loaded.file, loaded.rows);
@@ -277,6 +295,10 @@ function Workflow({
   const legacyOptionSelectionActive = Boolean(ifcFile && fixtureRun?.status === "blocked");
 
   const submitPaiveDecision = (kind: "accept" | "reject") => {
+    if (!canSubmitDecision) {
+      viewerDenied();
+      return;
+    }
     if (!fixtureRun) return;
     const res = decide(fixtureRun.run_id, kind, reviewer, decisionReason, selectedAssembly);
     setDecideResult(res);
@@ -323,6 +345,10 @@ function Workflow({
 
   const handleIfc = (f?: File) => {
     if (!f) return;
+    if (!canUploadIfc) {
+      viewerDenied();
+      return;
+    }
     if (!f.name.toLowerCase().endsWith(".ifc")) { toast.error("Please select an .ifc file"); return; }
     const version = (uploadedIfcVersions(project).at(-1)?.version ?? 0) + 1;
     onStoreIfc(f);
@@ -355,7 +381,14 @@ function Workflow({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={onClearIfcVersions}
+                  disabled={!canClearIfc}
+                  onClick={() => {
+                    if (!canClearIfc) {
+                      viewerDenied();
+                      return;
+                    }
+                    onClearIfcVersions();
+                  }}
                   className="shrink-0 text-muted-foreground hover:border-warning hover:text-warning"
                 >
                   <RotateCcw />
@@ -364,12 +397,13 @@ function Workflow({
               </div>
             )}
             <div
-              onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+              onDragOver={(e) => { if (!canUploadIfc) return; e.preventDefault(); setDrag(true); }}
               onDragLeave={() => setDrag(false)}
               onDrop={(e) => { e.preventDefault(); setDrag(false); handleIfc(e.dataTransfer.files[0]); }}
               className={cn(
                 "relative flex flex-col items-center rounded-2xl border-2 border-dashed p-10 text-center transition-colors",
                 drag ? "border-primary bg-primary/10" : "border-border bg-background/40",
+                !canUploadIfc && "opacity-55",
               )}
             >
               {drag && (
@@ -383,9 +417,15 @@ function Workflow({
               />
               <p className="relative z-[1] mt-4 text-lg font-medium">Drag & drop your IFC file here</p>
               <p className="relative z-[1] text-base text-muted-foreground">IFC 2x3 / IFC4 · up to 500 MB</p>
+              {!canUploadIfc && (
+                <p className="relative z-[1] mt-4 max-w-sm text-sm text-muted-foreground">
+                  Viewer access — ask a BIM Manager to upload IFC versions.
+                </p>
+              )}
               <Button
                 type="button"
                 size="lg"
+                disabled={!canUploadIfc}
                 className="relative z-[1] mt-5"
                 onClick={() => ifcInput.current?.click()}
               >
@@ -429,7 +469,7 @@ function Workflow({
               </ul>
             )}
             <div className="mt-5 flex flex-wrap items-center gap-4">
-              <Button type="button" variant="outline" onClick={() => costInput.current?.click()}>
+              <Button type="button" variant="outline" disabled={!canUploadCost} onClick={() => costInput.current?.click()}>
                 <FileSpreadsheet className="text-secondary" />
                 Upload Cost File
               </Button>
@@ -583,6 +623,7 @@ function Workflow({
                   decisionReason={decisionReason}
                   onDecisionReasonChange={setDecisionReason}
                   hasOptions={Boolean(fixtureRun.d2?.options?.length)}
+                  allowDecision={canSubmitDecision}
                   onAccept={() => submitPaiveDecision("accept")}
                   onReject={() => submitPaiveDecision("reject")}
                   result={decideResult}
@@ -609,6 +650,7 @@ function Workflow({
                   onDecisionReasonChange={setDecisionReason}
                   hasOptions={false}
                   awaitingModel
+                  allowDecision={canSubmitDecision}
                   onAccept={() => submitPaiveDecision("accept")}
                   onReject={() => submitPaiveDecision("reject")}
                   result={decideResult}
@@ -763,15 +805,15 @@ function Workflow({
                 </span>
               </div>
               <div className="flex flex-wrap gap-3">
-                <Button size="lg" onClick={() => { setDecision("Approved"); toast.success(`Option ${opt} approved`); }}>
+                <Button size="lg" disabled={!canSubmitDecision} onClick={() => { setDecision("Approved"); toast.success(`Option ${opt} approved`); }}>
                   <Check />
                   Approve
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => { setDecision("Revision Requested"); toast.info("Revision requested from design team"); }}>
+                <Button size="lg" variant="outline" disabled={!canSubmitDecision} onClick={() => { setDecision("Revision Requested"); toast.info("Revision requested from design team"); }}>
                   <RotateCcw />
                   Request Revision
                 </Button>
-                <Button size="lg" variant="outlineDestructive" onClick={() => { setDecision("Rejected"); toast.error("Change request rejected"); }}>
+                <Button size="lg" variant="outlineDestructive" disabled={!canSubmitDecision} onClick={() => { setDecision("Rejected"); toast.error("Change request rejected"); }}>
                   <X />
                   Reject
                 </Button>
@@ -786,9 +828,11 @@ function Workflow({
               variant="outline"
               size="lg"
               onClick={() =>
-                toast.success("PDF report generated", {
-                  description: `PAiVE_${project.code}_${ifcVersionLabel(project.activeIfcVersion)}_report.pdf`,
-                })
+                canDownloadReport
+                  ? toast.success("PDF report generated", {
+                      description: `PAiVE_${project.code}_${ifcVersionLabel(project.activeIfcVersion)}_report.pdf`,
+                    })
+                  : viewerDenied()
               }
             >
               <Download />
@@ -798,6 +842,10 @@ function Workflow({
               variant="outline"
               size="lg"
               onClick={() => {
+                if (!canDownloadReport) {
+                  viewerDenied();
+                  return;
+                }
                 const csv = "Criteria,Option A,Option B,Option C\n" + [["Cost", "cost"], ["Schedule", "sched"], ["Risk", "risk"], ["Carbon", "carbon"]].map(([l, k]) => [l, ...OPTIONS.map((o) => o[k as "cost"])].join(",")).join("\n");
                 const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "paive_comparison.csv"; a.click();
                 toast.success("CSV exported");
@@ -809,6 +857,7 @@ function Workflow({
             <Button
               variant="secondary"
               size="lg"
+              disabled={!canSubmitDecision}
               onClick={() => decision ? toast.success("Decision saved", { description: `${decision} · Option ${opt}` }) : toast.warning("Choose Approve, Request Revision or Reject first")}
             >
               <Save />
@@ -830,7 +879,15 @@ const statusSelectClass: Record<ProjectStatus, string> = {
   Draft: "bg-muted text-muted-foreground border-border",
 };
 
-function ProjectStatusSelect({ value, onChange }: { value: ProjectStatus; onChange: (status: ProjectStatus) => void }) {
+function ProjectStatusSelect({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: ProjectStatus;
+  onChange: (status: ProjectStatus) => void;
+  disabled?: boolean;
+}) {
   const chevronTone =
     value === "On track" ? "text-success" : value === "Analyzing" ? "text-warning" : "text-muted-foreground";
   return (
@@ -838,6 +895,7 @@ function ProjectStatusSelect({ value, onChange }: { value: ProjectStatus; onChan
       <select
         value={value}
         aria-label="Project status"
+        disabled={disabled}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
         onChange={(e) => onChange(e.target.value as ProjectStatus)}
@@ -880,6 +938,9 @@ function Index() {
   const [decisionLogsByProject, setDecisionLogsByProject] = useState<Record<string, PaiveLogEntry[]>>({});
   const active = (projects.find((p) => p.id === activeId) ?? projects[0])!;
   const activeBaseline = projectBaselines[active.id] ?? projectBaseline(active);
+  const userEmail = getDemoUserEmail() ?? "";
+  const access = useMemo(() => projectAccess(active, userEmail), [active, userEmail]);
+  const userInitial = (userEmail.split("@")[0]?.[0] ?? "?").toUpperCase();
 
   const signOut = () => {
     clearDemoSession();
@@ -915,6 +976,10 @@ function Index() {
     setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, config } : p)));
   };
 
+  const updateMembers = (members: ProjectMember[]) => {
+    setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, members } : p)));
+  };
+
   const updateCostData = (costData: ProjectCostData | null) => {
     setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, costData } : p)));
   };
@@ -928,12 +993,20 @@ function Index() {
   };
 
   const uploadProjectCost = async (file: File) => {
+    if (!access.can("upload_cost")) {
+      viewerDenied();
+      return;
+    }
     const loaded = await loadProjectCostFile(file);
     if (!loaded) return;
     storeCostOnProject(loaded.file, loaded.rows);
   };
 
   const addProject = () => {
+    if (!access.can("create_project")) {
+      viewerDenied();
+      return;
+    }
     const n = projects.length + 1;
     const p: Project = {
       id: `p${Date.now()}`,
@@ -943,6 +1016,7 @@ function Index() {
       ifcVersions: [],
       activeIfcVersion: 0,
       costData: null,
+      members: defaultProjectMembers(),
       config: defaultProjectConfig(`New Project ${n}`),
     };
     setProjects((ps) => [...ps, p]);
@@ -953,6 +1027,10 @@ function Index() {
   };
 
   const resetActiveProjectDefaults = async () => {
+    if (!access.can("reset_config")) {
+      viewerDenied();
+      return;
+    }
     const id = activeId;
     await deleteAllProjectFiles(id);
     setProjects((ps) => {
@@ -974,6 +1052,11 @@ function Index() {
   };
 
   const deleteProject = async (id: string) => {
+    const targetAccess = projectAccess(projects.find((p) => p.id === id) ?? active, userEmail);
+    if (!targetAccess.can("delete_project")) {
+      viewerDenied();
+      return;
+    }
     if (projects.length <= 1) {
       toast.error("You must keep at least one project");
       return;
@@ -1059,7 +1142,16 @@ function Index() {
                 </p>
               </div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-lg font-semibold text-secondary-foreground">VV</div>
+            <div className="hidden max-w-[12rem] flex-col items-end leading-tight sm:flex">
+              <span className="truncate text-sm font-medium text-foreground">{userEmail || "—"}</span>
+              <span className="text-xs text-muted-foreground">{ROLE_LABELS[access.role]}</span>
+            </div>
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-lg font-semibold text-secondary-foreground"
+              title={userEmail}
+            >
+              {userInitial}
+            </div>
             <Button
               type="button"
               variant="outline"
@@ -1112,11 +1204,15 @@ function Index() {
                           </TooltipContent>
                         </Tooltip>
                         <span className="block truncate text-sm text-muted-foreground">{p.config.stage}</span>
-                        <ProjectStatusSelect value={p.status} onChange={(status) => updateProjectStatus(p.id, status)} />
+                        <ProjectStatusSelect
+                          value={p.status}
+                          disabled={!projectAccess(p, userEmail).can("edit_config")}
+                          onChange={(status) => updateProjectStatus(p.id, status)}
+                        />
                       </span>
                     )}
                   </button>
-                  {open && projects.length > 1 && (
+                  {open && projects.length > 1 && projectAccess(p, userEmail).can("delete_project") && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -1132,20 +1228,22 @@ function Index() {
                 </div>
               </li>
             ))}
-            <li>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addProject}
-                title="New Project"
-                className="h-auto w-full justify-start gap-3 border-dashed p-3 text-muted-foreground hover:border-primary hover:text-primary"
-              >
-                <span className="flex h-11 w-11 items-center justify-center">
-                  <Plus className="h-6 w-6" />
-                </span>
-                {open && "New Project"}
-              </Button>
-            </li>
+            {access.can("create_project") && (
+              <li>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addProject}
+                  title="New Project"
+                  className="h-auto w-full justify-start gap-3 border-dashed p-3 text-muted-foreground hover:border-primary hover:text-primary"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center">
+                    <Plus className="h-6 w-6" />
+                  </span>
+                  {open && "New Project"}
+                </Button>
+              </li>
+            )}
           </ul>
         </aside>
         <main className="min-w-0 flex-1 px-8 pt-10">
@@ -1154,6 +1252,7 @@ function Index() {
               <Workflow
                 key={active.id}
                 project={active}
+                access={access}
                 onStoreIfc={(file) => setProjects((ps) => ps.map((p) => (p.id === active.id ? appendIfcVersion(p, file) : p)))}
                 onStoreCost={storeCostOnProject}
                 onClearIfcVersions={() => void clearActiveIfcVersions()}
@@ -1176,7 +1275,10 @@ function Index() {
                 baseline={activeBaseline.config}
                 costData={active.costData}
                 baselineCostData={activeBaseline.costData}
+                members={active.members}
+                access={access}
                 onChange={updateConfig}
+                onMembersChange={updateMembers}
                 onCostUpload={uploadProjectCost}
                 onCostDataChange={updateCostData}
                 onSave={() => setProjectBaselines((b) => ({ ...b, [active.id]: projectBaseline(active) }))}

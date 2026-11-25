@@ -527,6 +527,7 @@ export function Ve5HumanGatePanel({
   onReject,
   result,
   acceptLocked = false,
+  allowDecision = true,
 }: {
   reviewer: string;
   onReviewerChange: (value: string) => void;
@@ -540,11 +541,13 @@ export function Ve5HumanGatePanel({
   result: DecideResult | null;
   /** After a successful accept, lock accept (and inputs) for this run. */
   acceptLocked?: boolean;
+  /** Viewers can see the gate but not submit accept/reject. */
+  allowDecision?: boolean;
 }) {
   const inactive = awaitingModel || !hasOptions;
   const canSubmit =
-    hasOptions && !awaitingModel && reviewer.trim().length > 0 && decisionReason.trim().length > 0;
-  const fieldsLocked = acceptLocked || inactive;
+    allowDecision && hasOptions && !awaitingModel && reviewer.trim().length > 0 && decisionReason.trim().length > 0;
+  const fieldsLocked = acceptLocked || inactive || !allowDecision;
 
   return (
     <div
@@ -559,6 +562,10 @@ export function Ve5HumanGatePanel({
             {awaitingModel
               ? "Upload an IFC model to enable the human gate."
               : "No ranked options for this run — the gate stays inactive until VE generates alternatives."}
+          </p>
+        ) : !allowDecision ? (
+          <p className="text-base text-muted-foreground" role="status">
+            Viewer access — you can review results but cannot submit accept or reject.
           </p>
         ) : !canSubmit ? (
           <p className="text-base text-muted-foreground" role="status">

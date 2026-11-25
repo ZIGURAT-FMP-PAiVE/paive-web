@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isDemoAuthenticated, setDemoSession, validateDemoLogin } from "@/lib/demoAuth";
+import { DEMO_ADMIN_EMAIL, DEMO_VIEWER_EMAIL, isDemoAuthenticated, setDemoSession, validateDemoLogin } from "@/lib/demoAuth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -32,8 +32,9 @@ function LoginPage() {
     setError(null);
     setPending(true);
     window.setTimeout(() => {
-      if (validateDemoLogin(email, password)) {
-        setDemoSession();
+      const account = validateDemoLogin(email, password);
+      if (account) {
+        setDemoSession(account);
         void navigate({ to: "/" });
         return;
       }
@@ -63,7 +64,7 @@ function LoginPage() {
               name="email"
               type="email"
               autoComplete="username"
-              placeholder="user@paive.eu"
+              placeholder={`${DEMO_ADMIN_EMAIL} or ${DEMO_VIEWER_EMAIL}`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

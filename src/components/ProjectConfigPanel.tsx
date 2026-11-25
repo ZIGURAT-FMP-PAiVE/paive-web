@@ -1,13 +1,26 @@
-import { useRef, type ReactNode } from "react";
-import { Briefcase, ShieldCheck, Activity, Database, Save, RotateCcw, FileSpreadsheet, CheckCircle2, Trash2 } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import {
+  Briefcase,
+  ShieldCheck,
+  Activity,
+  Database,
+  Save,
+  RotateCcw,
+  FileSpreadsheet,
+  CheckCircle2,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
-import { STAGES, type ProjectConfig, type ProjectCostData, type Op } from "@/lib/projects";
+import { STAGES, type ProjectConfig, type ProjectCostData, type ProjectMember, type Op } from "@/lib/projects";
+import type { ProjectAccess } from "@/lib/projectPermissions";
+import { ProjectRolesPanel } from "@/components/ProjectRolesPanel";
 import { TruncatedText } from "@/components/TruncatedText";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-const field = "w-full rounded-xl border border-input bg-background/60 px-4 py-3 text-lg outline-none placeholder:text-muted-foreground focus:border-primary";
+const field = "w-full rounded-xl border border-input bg-background/60 px-4 py-3 text-lg outline-none placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-60";
 
 function Block({ n, label, title, desc, icon, children }: { n: string; label: string; title: string; desc?: string; icon: ReactNode; children: ReactNode }) {
   return (
@@ -30,7 +43,10 @@ export function ProjectConfigPanel({
   baseline,
   costData,
   baselineCostData,
+  members,
+  access,
   onChange,
+  onMembersChange,
   onCostUpload,
   onCostDataChange,
   onSave,
@@ -41,158 +57,276 @@ export function ProjectConfigPanel({
   baseline: ProjectConfig;
   costData: ProjectCostData | null;
   baselineCostData: ProjectCostData | null;
+  members: ProjectMember[];
+  access: ProjectAccess;
   onChange: (c: ProjectConfig) => void;
+  onMembersChange: (members: ProjectMember[]) => void;
   onCostUpload: (file: File) => Promise<void>;
   onCostDataChange: (costData: ProjectCostData | null) => void;
   onSave: () => void;
   onResetDefaults: () => void;
   onDeleteProject: () => void;
 }) {
+  const [tab, setTab] = useState<"setup" | "roles">("setup");
   const costInput = useRef<HTMLInputElement>(null);
   const set = <K extends keyof ProjectConfig>(k: K, v: ProjectConfig[K]) => onChange({ ...config, [k]: v });
   const fw = config.functionWeight;
+  const canEdit = access.can("edit_config");
+  const canUploadCost = access.can("upload_cost");
+  const canSave = access.can("save_config");
+  const canReset = access.can("reset_config");
+  const canDelete = access.can("delete_project");
 
   return (
     <div className="space-y-6">
       <div>
         <div className="text-base font-bold tracking-widest text-muted-foreground">CONFIGURATION · PROJECT</div>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Project setup</h1>
-        <p className="mt-1 text-base text-muted-foreground">Define the project brief, client priorities and cost source.</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight">Project configuration</h1>
+        <p className="mt-1 text-base text-muted-foreground">
+          {canEdit ? "Define the brief, priorities, cost source, and team access." : "View-only — BIM Manager / Admin can edit settings."}
+        </p>
+        <div className="mt-5 flex w-fit items-center gap-1.5 rounded-xl border border-border bg-card p-1.5">
+          {(
+            [
+              ["setup", "Project setup", Briefcase],
+              ["roles", "Roles & access", Users],
+            ] as const
+          ).map(([k, l, I]) => (
+            <Button
+              key={k}
+              type="button"
+              variant={tab === k ? "default" : "ghost"}
+              onClick={() => setTab(k)}
+              className={cn(
+                "h-11 rounded-lg px-5 text-base font-medium [&_svg]:!size-5",
+                tab === k ? "shadow-sm" : "text-muted-foreground",
+              )}
+            >
+              <I />
+              {l}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <Block n="01" label="PROJECT" title="Project information" icon={<Briefcase className="h-7 w-7" />}>
-        <div className="grid gap-5 md:grid-cols-2">
-          <label className="block"><span className="mb-2 block text-base font-medium">Project name</span>
-            <input className={field} value={config.name} onChange={(e) => set("name", e.target.value)} /></label>
-          <label className="block"><span className="mb-2 block text-base font-medium">Project stage</span>
-            <select className={field} value={config.stage} onChange={(e) => set("stage", e.target.value)}>
-              {STAGES.map((s) => <option key={s}>{s}</option>)}
-            </select></label>
-          <label className="block md:col-span-2"><span className="mb-2 block text-base font-medium">Typology</span>
-            <input className={field} value={config.typology} onChange={(e) => set("typology", e.target.value)} placeholder="e.g. External walls" /></label>
-        </div>
-      </Block>
-
-      <Block n="02" label="PERFORMANCE" title="Function targets" desc="Enter targets from the approved project brief. Leave blank if not applicable." icon={<ShieldCheck className="h-7 w-7" />}>
-        <div className="space-y-3">
-          <div className="hidden grid-cols-[2fr_1fr_1fr_100px] gap-4 px-2 text-base font-medium text-muted-foreground md:grid">
-            <span>Function / Metric</span><span>Operator</span><span>Target</span><span>Unit</span>
-          </div>
-          {config.targets.map((t, i) => {
-            const upd = (patch: Partial<typeof t>) =>
-              onChange({ ...config, targets: config.targets.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
-            return (
-              <div key={t.key} className="grid items-center gap-4 rounded-xl border border-border bg-background/40 p-4 md:grid-cols-[2fr_1fr_1fr_100px]">
-                <div><div className="font-semibold">{t.name}</div><div className="text-base text-muted-foreground">{t.metric}</div></div>
-                <select className={field} value={t.op} onChange={(e) => upd({ op: e.target.value as Op })}>
-                  {["Maximum", "Minimum", "Equal"].map((o) => <option key={o}>{o}</option>)}
+      {tab === "roles" ? (
+        <ProjectRolesPanel
+          members={members}
+          onChange={onMembersChange}
+          canManage={access.can("manage_roles")}
+          currentUserEmail={access.email}
+        />
+      ) : (
+        <>
+          <Block n="01" label="PROJECT" title="Project information" icon={<Briefcase className="h-7 w-7" />}>
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-base font-medium">Project name</span>
+                <input className={field} value={config.name} disabled={!canEdit} onChange={(e) => set("name", e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-base font-medium">Project stage</span>
+                <select className={field} value={config.stage} disabled={!canEdit} onChange={(e) => set("stage", e.target.value)}>
+                  {STAGES.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
                 </select>
-                <input className={field} value={t.value} placeholder="Add target" inputMode="decimal" onChange={(e) => upd({ value: e.target.value })} />
-                <span className="text-muted-foreground">{t.unit}</span>
-              </div>
-            );
-          })}
-        </div>
-      </Block>
-
-      <Block n="03" label="PRIORITIES" title="Client priorities" desc="Drag the slider to split weights. They always total 100%." icon={<Activity className="h-7 w-7" />}>
-        <div className="flex justify-between text-lg">
-          <div><div className="font-semibold text-primary">Function performance · {fw}%</div><div className="text-base text-muted-foreground">How well the element meets the brief</div></div>
-          <div className="text-right"><div className="font-semibold text-success">Resource efficiency · {100 - fw}%</div><div className="text-base text-muted-foreground">Quantity × unit rate</div></div>
-        </div>
-        <div className="mt-5 flex h-4 overflow-hidden rounded-full">
-          <div className="bg-gradient-to-r from-secondary to-primary transition-all" style={{ width: `${fw}%` }} />
-          <div className="flex-1 bg-success" />
-        </div>
-        <input type="range" min={0} max={100} step={5} value={fw} onChange={(e) => set("functionWeight", Number(e.target.value))} className="mt-4 w-full accent-primary" aria-label="Function performance weight" />
-      </Block>
-
-      <Block n="04" label="COST DATA" title="Cost source" desc="Upload a rate file for this project. The file is kept for workflow analysis." icon={<Database className="h-7 w-7" />}>
-        <div className="flex flex-wrap items-center gap-4">
-          <button
-            type="button"
-            onClick={() => costInput.current?.click()}
-            className="flex items-center gap-2 rounded-xl border border-secondary px-5 py-3 font-medium text-foreground hover:bg-secondary/15"
-          >
-            <FileSpreadsheet className="h-5 w-5 text-secondary" />
-            Upload cost file
-          </button>
-          <input
-            ref={costInput}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) void onCostUpload(file);
-            }}
-          />
-          <span className="text-base text-muted-foreground">Supports .xlsx, .xls, .csv</span>
-        </div>
-        {costData && (
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary bg-primary/10 p-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <FileSpreadsheet className="h-6 w-6 shrink-0 text-primary" />
-              <TruncatedText text={costData.name} maxWidthClass="max-w-[min(100%,18rem)]" className="font-semibold text-foreground" />
-              <span className="shrink-0 text-base text-muted-foreground">
-                {costData.sizeLabel} · {costData.rows.length} items · {costData.uploadedAt}
-              </span>
+              </label>
+              <label className="block md:col-span-2">
+                <span className="mb-2 block text-base font-medium">Typology</span>
+                <input
+                  className={field}
+                  value={config.typology}
+                  disabled={!canEdit}
+                  onChange={(e) => set("typology", e.target.value)}
+                  placeholder="e.g. External walls"
+                />
+              </label>
             </div>
-            <Badge variant="success" className="gap-1 text-sm font-medium">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Stored
-            </Badge>
-          </div>
-        )}
-      </Block>
+          </Block>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button type="button" variant="outlineDestructive" size="lg" onClick={onDeleteProject}>
-          <Trash2 />
-          Delete project
-        </Button>
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={onResetDefaults}
-            className="border-warning/40 text-warning hover:bg-warning/10"
+          <Block
+            n="02"
+            label="PERFORMANCE"
+            title="Function targets"
+            desc="Enter targets from the approved project brief. Leave blank if not applicable."
+            icon={<ShieldCheck className="h-7 w-7" />}
           >
-            <RotateCcw />
-            Reset to defaults
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            onClick={() => {
-              onChange(baseline);
-              onCostDataChange(baselineCostData);
-              toast.info("Reverted to last saved configuration");
-            }}
+            <div className="space-y-3">
+              <div className="hidden grid-cols-[2fr_1fr_1fr_100px] gap-4 px-2 text-base font-medium text-muted-foreground md:grid">
+                <span>Function / Metric</span>
+                <span>Operator</span>
+                <span>Target</span>
+                <span>Unit</span>
+              </div>
+              {config.targets.map((t, i) => {
+                const upd = (patch: Partial<typeof t>) =>
+                  onChange({ ...config, targets: config.targets.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+                return (
+                  <div key={t.key} className="grid items-center gap-4 rounded-xl border border-border bg-background/40 p-4 md:grid-cols-[2fr_1fr_1fr_100px]">
+                    <div>
+                      <div className="font-semibold">{t.name}</div>
+                      <div className="text-base text-muted-foreground">{t.metric}</div>
+                    </div>
+                    <select className={field} value={t.op} disabled={!canEdit} onChange={(e) => upd({ op: e.target.value as Op })}>
+                      {["Maximum", "Minimum", "Equal"].map((o) => (
+                        <option key={o}>{o}</option>
+                      ))}
+                    </select>
+                    <input
+                      className={field}
+                      value={t.value}
+                      disabled={!canEdit}
+                      placeholder="Add target"
+                      inputMode="decimal"
+                      onChange={(e) => upd({ value: e.target.value })}
+                    />
+                    <span className="text-muted-foreground">{t.unit}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Block>
+
+          <Block
+            n="03"
+            label="PRIORITIES"
+            title="Client priorities"
+            desc="Drag the slider to split weights. They always total 100%."
+            icon={<Activity className="h-7 w-7" />}
           >
-            <RotateCcw />
-            Undo unsaved changes
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            onClick={() => {
-              if (!config.name.trim()) {
-                toast.error("Project name is required");
-                return;
-              }
-              onSave();
-              toast.success("Configuration updated", { description: config.name });
-            }}
+            <div className="flex justify-between text-lg">
+              <div>
+                <div className="font-semibold text-primary">Function performance · {fw}%</div>
+                <div className="text-base text-muted-foreground">How well the element meets the brief</div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold text-success">Resource efficiency · {100 - fw}%</div>
+                <div className="text-base text-muted-foreground">Quantity × unit rate</div>
+              </div>
+            </div>
+            <div className="mt-5 flex h-4 overflow-hidden rounded-full">
+              <div className="bg-gradient-to-r from-secondary to-primary transition-all" style={{ width: `${fw}%` }} />
+              <div className="flex-1 bg-success" />
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={fw}
+              disabled={!canEdit}
+              onChange={(e) => set("functionWeight", Number(e.target.value))}
+              className="mt-4 w-full accent-primary disabled:opacity-50"
+              aria-label="Function performance weight"
+            />
+          </Block>
+
+          <Block
+            n="04"
+            label="COST DATA"
+            title="Cost source"
+            desc="Upload a rate file for this project. The file is kept for workflow analysis."
+            icon={<Database className="h-7 w-7" />}
           >
-            <Save />
-            Save Configuration
-          </Button>
-        </div>
-      </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                disabled={!canUploadCost}
+                onClick={() => costInput.current?.click()}
+                className="flex items-center gap-2 rounded-xl border border-secondary px-5 py-3 font-medium text-foreground hover:bg-secondary/15 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FileSpreadsheet className="h-5 w-5 text-secondary" />
+                Upload cost file
+              </button>
+              <input
+                ref={costInput}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void onCostUpload(file);
+                }}
+              />
+              <span className="text-base text-muted-foreground">Supports .xlsx, .xls, .csv</span>
+            </div>
+            {costData && (
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary bg-primary/10 p-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <FileSpreadsheet className="h-6 w-6 shrink-0 text-primary" />
+                  <TruncatedText text={costData.name} maxWidthClass="max-w-[min(100%,18rem)]" className="font-semibold text-foreground" />
+                  <span className="shrink-0 text-base text-muted-foreground">
+                    {costData.sizeLabel} · {costData.rows.length} items · {costData.uploadedAt}
+                  </span>
+                </div>
+                <Badge variant="success" className="gap-1 text-sm font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Stored
+                </Badge>
+              </div>
+            )}
+          </Block>
+
+          {(canDelete || canReset || canSave) && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {canDelete && (
+                <Button type="button" variant="outlineDestructive" size="lg" onClick={onDeleteProject}>
+                  <Trash2 />
+                  Delete project
+                </Button>
+              )}
+              <div className="flex flex-wrap justify-end gap-3">
+                {canReset && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={onResetDefaults}
+                    className="border-warning/40 text-warning hover:bg-warning/10"
+                  >
+                    <RotateCcw />
+                    Reset to defaults
+                  </Button>
+                )}
+                {canSave && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      onClick={() => {
+                        onChange(baseline);
+                        onCostDataChange(baselineCostData);
+                        toast.info("Reverted to last saved configuration");
+                      }}
+                    >
+                      <RotateCcw />
+                      Undo unsaved changes
+                    </Button>
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={() => {
+                        if (!config.name.trim()) {
+                          toast.error("Project name is required");
+                          return;
+                        }
+                        onSave();
+                        toast.success("Configuration updated", { description: config.name });
+                      }}
+                    >
+                      <Save />
+                      Save Configuration
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

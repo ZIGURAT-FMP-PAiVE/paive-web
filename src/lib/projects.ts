@@ -2,6 +2,15 @@ import type { CostRow } from "./costFile";
 
 export type Op = "Maximum" | "Minimum" | "Equal";
 export type Target = { key: string; name: string; metric: string; unit: string; op: Op; value: string };
+export type ProjectRole = "admin" | "viewer";
+
+export type ProjectMember = {
+  id: string;
+  email: string;
+  name: string;
+  role: ProjectRole;
+};
+
 export type ProjectConfig = {
   name: string;
   stage: string;
@@ -41,7 +50,20 @@ export type Project = {
   activeIfcVersion: number;
   costData: ProjectCostData | null;
   config: ProjectConfig;
+  members: ProjectMember[];
 };
+
+export function defaultProjectMembers(): ProjectMember[] {
+  return [
+    { id: "member-admin", email: "user@paive.eu", name: "BIM Manager", role: "admin" },
+    { id: "member-viewer", email: "viewer@paive.eu", name: "Project Viewer", role: "viewer" },
+  ];
+}
+
+export function ensureProjectMembers(project: Partial<Project> & Pick<Project, "id">): ProjectMember[] {
+  if (project.members?.length) return project.members.map((m) => ({ ...m }));
+  return defaultProjectMembers();
+}
 
 export function ifcVersionLabel(version: number): string {
   return `v${String(version).padStart(2, "0")}`;
@@ -203,12 +225,13 @@ const targets = (fire = "60"): Target[] => [
 ];
 
 export function initialProjects(): Project[] {
+  const members = defaultProjectMembers();
   return [
-    { id: "verona", code: "VH", status: "Analyzing", costData: null, ...emptyIfc,
+    { id: "verona", code: "VH", status: "Analyzing", costData: null, members, ...emptyIfc,
       config: { name: "Verona Hospital", stage: "Design Development", typology: "External walls", targets: targets("90"), functionWeight: 60, costSource: "DEI Prezzario 2026 – Veneto" } },
-    { id: "milano", code: "MM", status: "On track", costData: null, ...emptyIfc,
+    { id: "milano", code: "MM", status: "On track", costData: null, members, ...emptyIfc,
       config: { name: "Milano Medical Center", stage: "Schematic Design", typology: "Facade systems", targets: targets("120"), functionWeight: 50, costSource: "rates_milano_Q3_2026.xlsx" } },
-    { id: "test1", code: "T1", status: "Draft", costData: null, ...emptyIfc,
+    { id: "test1", code: "T1", status: "Draft", costData: null, members, ...emptyIfc,
       config: { name: "Test Valentina 1", stage: "Design Development", typology: "External walls", targets: targets(), functionWeight: 70, costSource: "" } },
   ];
 }

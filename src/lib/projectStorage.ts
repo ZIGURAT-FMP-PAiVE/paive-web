@@ -2,6 +2,7 @@ import type { CostRow } from "./costFile";
 import type { PaiveLogEntry } from "./paive/types";
 import type { IfcVersion, Project, ProjectConfig, ProjectCostData } from "./projects";
 import {
+  ensureProjectMembers,
   initialProjects,
   MAX_STORED_IFC_VERSIONS,
   pruneIfcVersionsWithoutFiles,
@@ -270,7 +271,7 @@ async function hydrateCostData(projectId: string, c: PersistedCostData | null): 
 async function hydrateProject(p: PersistedProject): Promise<Project> {
   const ifcVersions = await Promise.all(p.ifcVersions.map((v) => hydrateIfcVersion(p.id, v)));
   const costData = await hydrateCostData(p.id, p.costData);
-  return { ...p, ifcVersions, costData };
+  return { ...p, ifcVersions, costData, members: ensureProjectMembers(p) };
 }
 
 function cloneTargets(targets: ProjectConfig["targets"]): ProjectConfig["targets"] {
@@ -361,6 +362,7 @@ export function seedProjects(): Project[] {
     ...p,
     config: { ...p.config, targets: cloneTargets(p.config.targets) },
     ifcVersions: p.ifcVersions.map((v) => ({ ...v })),
+    members: ensureProjectMembers(p),
   }));
 }
 
