@@ -2,8 +2,6 @@ import { Shield, UserPlus, Trash2 } from "lucide-react";
 import type { ProjectMember, ProjectRole } from "@/lib/projects";
 import { ROLE_LABELS } from "@/lib/projectPermissions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, dataTableZebraClass } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -88,12 +86,12 @@ export function ProjectRolesPanel({
           {(Object.keys(ROLE_PERMISSIONS_COPY) as ProjectRole[]).map((role) => (
             <div key={role} className="rounded-xl border border-border bg-background/40 p-4">
               <div className="font-semibold text-foreground">{ROLE_LABELS[role]}</div>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{ROLE_PERMISSIONS_COPY[role]}</p>
+              <p className="mt-2 text-base leading-relaxed text-muted-foreground">{ROLE_PERMISSIONS_COPY[role]}</p>
             </div>
           ))}
         </div>
 
-        <Table className="mt-8 min-w-[640px]">
+        <Table className="mt-8 min-w-[640px] text-base">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Name</TableHead>
@@ -110,14 +108,14 @@ export function ProjectRolesPanel({
                   <TableCell className="font-medium">
                     {m.name}
                     {isYou && (
-                      <span className="ml-2 text-xs font-normal text-primary">(you)</span>
+                      <span className="ml-2 text-base font-normal text-primary">(you)</span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-sm text-muted-foreground">{m.email}</TableCell>
+                  <TableCell className="text-muted-foreground">{m.email}</TableCell>
                   <TableCell>
                     {canManage ? (
                       <select
-                        className={cn(field, "h-10 py-2 text-base")}
+                        className={cn(field, "max-w-[14rem] py-2")}
                         value={m.role}
                         onChange={(e) =>
                           onChange(
@@ -131,7 +129,7 @@ export function ProjectRolesPanel({
                         <option value="viewer">{ROLE_LABELS.viewer}</option>
                       </select>
                     ) : (
-                      ROLE_LABELS[m.role]
+                      <span className="text-base">{ROLE_LABELS[m.role]}</span>
                     )}
                   </TableCell>
                   {canManage && (
@@ -157,43 +155,43 @@ export function ProjectRolesPanel({
 
       {canManage && (
         <section className="glass p-8">
-          <h3 className="text-lg font-semibold">Add member</h3>
-          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-[1fr_1fr_12rem_auto] lg:items-end">
-            <div className="space-y-2">
-              <Label htmlFor="member-email">Email</Label>
-              <Input
+          <h3 className="text-xl font-semibold tracking-tight">Add member</h3>
+          <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-[1fr_1fr_minmax(12rem,1fr)_auto] lg:items-end">
+            <label className="block">
+              <span className="mb-2 block text-base font-medium">Email</span>
+              <input
                 id="member-email"
                 type="email"
                 value={draftEmail}
                 onChange={(e) => setDraftEmail(e.target.value)}
                 placeholder="name@company.eu"
-                className="h-11 text-base"
+                className={field}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="member-name">Display name</Label>
-              <Input
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-base font-medium">Display name</span>
+              <input
                 id="member-name"
                 value={draftName}
                 onChange={(e) => setDraftName(e.target.value)}
                 placeholder="Optional"
-                className="h-11 text-base"
+                className={field}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="member-role">Role</Label>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-base font-medium">Role</span>
               <select
                 id="member-role"
-                className={cn(field, "h-11 py-2")}
+                className={field}
                 value={draftRole}
                 onChange={(e) => setDraftRole(e.target.value as ProjectRole)}
               >
                 <option value="admin">{ROLE_LABELS.admin}</option>
                 <option value="viewer">{ROLE_LABELS.viewer}</option>
               </select>
-            </div>
-            <Button type="button" className="h-11 gap-2" onClick={addMember}>
-              <UserPlus className="h-4 w-4" />
+            </label>
+            <Button type="button" size="lg" className="gap-2 lg:mb-0.5" onClick={addMember}>
+              <UserPlus className="h-5 w-5" />
               Add
             </Button>
           </div>

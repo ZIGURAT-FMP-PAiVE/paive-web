@@ -1,9 +1,10 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { DEMO_ADMIN_EMAIL, DEMO_VIEWER_EMAIL, isDemoAuthenticated, setDemoSession, validateDemoLogin } from "@/lib/demoAuth";
+
+const field =
+  "w-full rounded-xl border border-input bg-background/60 px-4 py-3 text-lg outline-none placeholder:text-muted-foreground focus:border-primary";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -44,7 +45,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-lg">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,oklch(0.72_0.17_233/0.22),transparent)]"
@@ -57,9 +58,9 @@ function LoginPage() {
         </div>
 
         <form onSubmit={submit} className="mt-8 space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="email">Work email</Label>
-            <Input
+          <label className="block">
+            <span className="mb-2 block text-base font-medium">Work email</span>
+            <input
               id="email"
               name="email"
               type="email"
@@ -67,12 +68,13 @@ function LoginPage() {
               placeholder={`${DEMO_ADMIN_EMAIL} or ${DEMO_VIEWER_EMAIL}`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className={field}
               required
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-base font-medium">Password</span>
+            <input
               id="password"
               name="password"
               type="password"
@@ -80,17 +82,21 @@ function LoginPage() {
               placeholder="••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className={field}
               required
             />
-          </div>
+          </label>
 
           {error && (
-            <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+            <p
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-base text-destructive"
+              role="alert"
+            >
               {error}
             </p>
           )}
 
-          <Button type="submit" className="h-10 w-full text-base font-semibold" disabled={pending}>
+          <Button type="submit" size="lg" className="w-full text-base font-semibold" disabled={pending}>
             {pending ? "Signing in…" : "Sign in"}
           </Button>
         </form>
