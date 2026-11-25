@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Box, ChevronDown, Maximize2, RotateCcw, ScanSearch } from "lucide-react";
 import { BimViewer, type BimViewerHandle, type IfcInfo } from "@/components/BimViewer";
 import { Badge } from "@/components/ui/badge";
@@ -167,6 +167,7 @@ export function BimModelViewerPanel({
   paiveWall,
   affectedWalls,
   compareIfcFile,
+  onGuidHighlightStats,
 }: {
   ifcFile: File | null;
   projectId: string;
@@ -179,8 +180,14 @@ export function BimModelViewerPanel({
   paiveWall?: PaiveWall | null;
   affectedWalls?: AffectedWallHighlight[];
   compareIfcFile?: File | null;
+  onGuidHighlightStats?: (matched: number, requested: number) => void;
 }) {
   const viewerRef = useRef<BimViewerHandle>(null);
+  const [guidMatch, setGuidMatch] = useState<{ matched: number; requested: number } | null>(null);
+
+  useEffect(() => {
+    setGuidMatch(null);
+  }, [ifcFile?.name, activeVersion]);
 
   return (
     <div className="glass flex flex-col overflow-hidden">
@@ -232,10 +239,31 @@ export function BimModelViewerPanel({
                   onModelLoaded={onModelLoaded}
                   affectedWalls={affectedWalls}
                   compareFile={compareIfcFile ?? null}
+                  onGuidHighlightStats={(matched, requested) => {
+                    setGuidMatch(requested > 0 ? { matched, requested } : null);
+                    onGuidHighlightStats?.(matched, requested);
+                  }}
                 />
               </div>
-              <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md bg-black/55 px-2.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm">
-                Drag to orbit · Scroll to zoom · Click to select
+              <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex max-w-[min(100%,20rem)] flex-col gap-1">
+                <div className="rounded-md bg-black/55 px-2.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm">
+                  Drag to orbit · Scroll to zoom · Click to select
+                </div>
+                {guidMatch && guidMatch.requested > 0 && (
+                  <div
+                    className={cn(
+                      "rounded-md px-2.5 py-1.5 text-xs backdrop-blur-sm",
+                      guidMatch.matched === guidMatch.requested
+                        ? "bg-black/55 text-muted-foreground"
+                        : "bg-amber-950/80 text-amber-100",
+                    )}
+                  >
+                    {guidMatch.matched}/{guidMatch.requested} run IfcGUIDs found in this IFC
+                    {guidMatch.matched < guidMatch.requested
+                      ? " — upload the model from the run results (e.g. Snowdon v02b)."
+                      : ""}
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -8,7 +8,7 @@ import {
   DECISION_LOG_LEGEND,
   WALL_HEALTH_LEGEND,
 } from "@/components/paive/ColorLegendRow";
-import { rankAccent, rankHeaderClass, rankOptionGlowClass, rankSelectedCellClass } from "@/lib/veSemantics";
+import { rankAccent, rankHeaderClass, rankMatrixColumnClass, rankOptionGlowClass } from "@/lib/veSemantics";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import {
@@ -203,6 +203,7 @@ export function PaiveWallsTable({
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead>Wall</TableHead>
+            <TableHead className="hidden font-mono text-xs xl:table-cell">IfcGUID</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Change</TableHead>
             <TableHead>U / Fire / Rw</TableHead>
@@ -221,6 +222,12 @@ export function PaiveWallsTable({
               )}
             >
               <TableCell className="pr-2 font-medium">{w.name}</TableCell>
+              <TableCell
+                className="hidden max-w-[10rem] truncate font-mono text-xs text-muted-foreground xl:table-cell"
+                title={w.guid}
+              >
+                {w.guid}
+              </TableCell>
               <TableCell className="text-muted-foreground">{w.type ?? "—"}</TableCell>
               <TableCell className="capitalize">{w.change}</TableCell>
               <TableCell className="text-sm text-muted-foreground tabular-nums">
@@ -364,7 +371,7 @@ export function D2ComparisonMatrix({
                     row.wrap && !row.prose && "max-w-xs leading-relaxed",
                     row.prose && "max-w-[min(100%,22rem)]",
                     !row.wrap && "tabular-nums",
-                    selected && !placeholder && rankSelectedCellClass(col.rank),
+                    !placeholder && rankMatrixColumnClass(col.rank, selected),
                     placeholder && "text-muted-foreground",
                     valueTone,
                   )}

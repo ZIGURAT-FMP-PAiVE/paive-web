@@ -5,6 +5,7 @@ import {
   type WallBounds,
 } from "@/lib/ifcWallAssignment";
 import { changedWallGlobalIds, indexIfcWalls, type WallIndexEntry } from "@/lib/ifcWallDiff";
+import { assignWallsByFixtureGuid } from "@/lib/ifcWallHighlight";
 import { footprintAreaM2, measureBuildingAreaM2 } from "@/lib/ifcBuildingArea";
 import { wallColourEmissiveHex, wallColourHex } from "@/lib/veSemantics";
 
@@ -30,6 +31,8 @@ type Props = {
   affectedWalls?: AffectedWallHighlight[];
   /** Prior IFC version for v02+ diff (e.g. office_v01 when viewing office_v02). */
   compareFile?: File | null;
+  /** How many run-result IfcGUIDs were matched in the loaded IFC (after model load). */
+  onGuidHighlightStats?: (matched: number, requested: number) => void;
 };
 
 const val = (x: unknown): string => {
@@ -41,7 +44,7 @@ const val = (x: unknown): string => {
 
 // Procedural demo model. Swap for That Open Engine / IFC.js loader later.
 export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
-  { selectedId, onSelect, file, onInspect, onModelLoaded, affectedWalls, compareFile },
+  { selectedId, onSelect, file, onInspect, onModelLoaded, affectedWalls, compareFile, onGuidHighlightStats },
   ref,
 ) {
   const viewApiRef = useRef<{ fitView: () => void; resetView: () => void } | null>(null);
@@ -76,6 +79,8 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
   onSelectRef.current = onSelect;
   const compareFileRef = useRef(compareFile);
   compareFileRef.current = compareFile;
+  const onGuidHighlightStatsRef = useRef(onGuidHighlightStats);
+  onGuidHighlightStatsRef.current = onGuidHighlightStats;
   const refreshWallDiffRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
@@ -233,43 +238,42 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         guidToExpressId.clear();
         expressToGuid.clear();
         const specs = affectedWallsRef.current;
-        if (!specs?.length || !wallPool.length) return;
+        if (!specs?.length || !wallPool.length) {
+          onGuidHighlightStatsRef.current?.(0, specs?.filter((s) => s.guid).length ?? 0);
+          return;
+        }
         computeWallBounds();
 
-        const claimed = new Set<string>();
-        const assignments: { spec: AffectedWallHighlight; expressId: string }[] = [];
-        const claim = (spec: AffectedWallHighlight, expressId: string) => {
-          if (claimed.has(expressId) || !ifcWallIdSet.has(expressId)) return false;
-          assignments.push({ spec, expressId });
-          claimed.add(expressId);
-          return true;
-        };
+        const fixtureMapped = assignWallsByFixtureGuid(specs, wallGlobalIdToExpressId, ifcWallIdSet);
+        const assignments: { spec: AffectedWallHighlight; expressId: string }[] = [...fixtureMapped.assignments];
 
-        for (const spec of specs) {
-          if (!spec.guid) continue;
-          const expressId = wallGlobalIdToExpressId.get(spec.guid);
-          if (expressId) claim(spec, expressId);
-        }
-
-        let unmapped = specs.filter((s) => !assignments.some((a) => a.spec === s));
-        const changedAvailable = changedIfcWallGlobalIds.filter((gid) => {
-          const exp = wallGlobalIdToExpressId.get(gid);
-          return exp != null && !claimed.has(exp);
-        });
-
-        for (let i = 0; i < unmapped.length && i < changedAvailable.length; i++) {
-          const exp = wallGlobalIdToExpressId.get(changedAvailable[i]!)!;
-          claim(unmapped[i]!, exp);
-        }
-
-        unmapped = specs.filter((s) => !assignments.some((a) => a.spec === s));
-        if (unmapped.length > 0) {
-          const pool = wallPool.filter((id) => !claimed.has(id));
-          const picked = assignWallsByCardinalCycle(pool, wallBoundsCache, unmapped.length);
-          unmapped.forEach((spec, i) => {
-            const exp = picked[i];
-            if (exp) claim(spec, exp);
+        const specsHaveGuid = specs.some((s) => s.guid);
+        if (!specsHaveGuid) {
+          const claimed = new Set(assignments.map((a) => a.expressId));
+          const claim = (spec: AffectedWallHighlight, expressId: string) => {
+            if (claimed.has(expressId) || !ifcWallIdSet.has(expressId)) return false;
+            assignments.push({ spec, expressId });
+            claimed.add(expressId);
+            return true;
+          };
+          const changedAvailable = changedIfcWallGlobalIds.filter((gid) => {
+            const exp = wallGlobalIdToExpressId.get(gid);
+            return exp != null && !claimed.has(exp);
           });
+          let unmapped = specs.filter((s) => !assignments.some((a) => a.spec === s));
+          for (let i = 0; i < unmapped.length && i < changedAvailable.length; i++) {
+            const exp = wallGlobalIdToExpressId.get(changedAvailable[i]!)!;
+            claim(unmapped[i]!, exp);
+          }
+          unmapped = specs.filter((s) => !assignments.some((a) => a.spec === s));
+          if (unmapped.length > 0) {
+            const pool = wallPool.filter((id) => !claimed.has(id));
+            const picked = assignWallsByCardinalCycle(pool, wallBoundsCache, unmapped.length);
+            unmapped.forEach((spec, i) => {
+              const exp = picked[i];
+              if (exp) claim(spec, exp);
+            });
+          }
         }
 
         for (const { spec, expressId } of assignments) {
@@ -285,6 +289,17 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
               }
             }
           }
+        }
+
+        onGuidHighlightStatsRef.current?.(fixtureMapped.matched, fixtureMapped.requested);
+        if (import.meta.env.DEV && fixtureMapped.requested > 0 && fixtureMapped.matched < fixtureMapped.requested) {
+          const missing = specs
+            .filter((s) => s.guid && !wallGlobalIdToExpressId.has(s.guid))
+            .map((s) => s.guid);
+          console.info(
+            `[BimViewer] ${fixtureMapped.matched}/${fixtureMapped.requested} run IfcGUIDs found in this IFC`,
+            missing.length ? { missingGuids: missing } : undefined,
+          );
         }
       };
 
