@@ -166,6 +166,7 @@ export function BimModelViewerPanel({
   info,
   paiveWall,
   affectedWalls,
+  compareIfcFile,
 }: {
   ifcFile: File | null;
   projectId: string;
@@ -177,6 +178,7 @@ export function BimModelViewerPanel({
   info: IfcInfo | null;
   paiveWall?: PaiveWall | null;
   affectedWalls?: AffectedWallHighlight[];
+  compareIfcFile?: File | null;
 }) {
   const viewerRef = useRef<BimViewerHandle>(null);
 
@@ -229,6 +231,7 @@ export function BimModelViewerPanel({
                   onInspect={onInspect}
                   onModelLoaded={onModelLoaded}
                   affectedWalls={affectedWalls}
+                  compareFile={compareIfcFile ?? null}
                 />
               </div>
               <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md bg-black/55 px-2.5 py-1.5 text-xs text-muted-foreground backdrop-blur-sm">

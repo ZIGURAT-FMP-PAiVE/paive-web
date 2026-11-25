@@ -16,6 +16,7 @@ import {
 } from "@/lib/veSemantics";
 import {
   activeIfcVersion,
+  previousUploadedIfcVersion,
   appendIfcVersion,
   uploadedIfcVersions,
   clearProjectIfcVersions,
@@ -198,6 +199,10 @@ function Workflow({
 }) {
   const currentIfc = activeIfcVersion(project);
   const ifcFile = currentIfc?.file ?? null;
+  const compareIfcFile =
+    project.activeIfcVersion > 1
+      ? (previousUploadedIfcVersion(project, currentIfc ?? undefined)?.file ?? null)
+      : null;
   const costRows = project.costData?.rows ?? [];
   const costDataset = project.costData?.name ?? (project.config.costSource || null);
   const [drag, setDrag] = useState(false);
@@ -530,6 +535,7 @@ function Workflow({
                 ) ?? null
               }
               affectedWalls={fixtureAffectedWalls.map((w) => ({ colour: w.colour, guid: w.guid }))}
+              compareIfcFile={compareIfcFile}
             />
           </div>
         </section>

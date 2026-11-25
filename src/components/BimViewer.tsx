@@ -4,6 +4,7 @@ import {
   collectIfcWallExpressIds,
   type WallBounds,
 } from "@/lib/ifcWallAssignment";
+import { changedWallGlobalIds, indexIfcWalls, type WallIndexEntry } from "@/lib/ifcWallDiff";
 import { footprintAreaM2, measureBuildingAreaM2 } from "@/lib/ifcBuildingArea";
 import { wallColourEmissiveHex, wallColourHex } from "@/lib/veSemantics";
 
@@ -27,6 +28,8 @@ type Props = {
   onModelLoaded?: (stats: { elementCount: number; ifcWallCount: number; buildingAreaM2: number }) => void;
   /** Map IFC walls to PAiVE wall health colours (same count as table). */
   affectedWalls?: AffectedWallHighlight[];
+  /** Prior IFC version for v02+ diff (e.g. office_v01 when viewing office_v02). */
+  compareFile?: File | null;
 };
 
 const val = (x: unknown): string => {
@@ -38,7 +41,7 @@ const val = (x: unknown): string => {
 
 // Procedural demo model. Swap for That Open Engine / IFC.js loader later.
 export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
-  { selectedId, onSelect, file, onInspect, onModelLoaded, affectedWalls },
+  { selectedId, onSelect, file, onInspect, onModelLoaded, affectedWalls, compareFile },
   ref,
 ) {
   const viewApiRef = useRef<{ fitView: () => void; resetView: () => void } | null>(null);
@@ -71,6 +74,9 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
   selectedIdRef.current = selectedId;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const compareFileRef = useRef(compareFile);
+  compareFileRef.current = compareFile;
+  const refreshWallDiffRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     let disposed = false;
@@ -184,6 +190,9 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
       const affectedIdToColour = new Map<string, string>();
       const guidToExpressId = new Map<string, string>();
       const expressToGuid = new Map<string, string>();
+      const wallGlobalIdToExpressId = new Map<string, string>();
+      const currentWallIndex = new Map<string, WallIndexEntry>();
+      const changedIfcWallGlobalIds: string[] = [];
 
       const computeWallBounds = () => {
         wallBoundsCache.clear();
@@ -226,17 +235,74 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         const specs = affectedWallsRef.current;
         if (!specs?.length || !wallPool.length) return;
         computeWallBounds();
-        const picked = assignWallsByCardinalCycle(wallPool, wallBoundsCache, specs.length);
-        picked.forEach((expressId, i) => {
-          const spec = specs[i];
-          if (!spec) return;
+
+        const claimed = new Set<string>();
+        const assignments: { spec: AffectedWallHighlight; expressId: string }[] = [];
+        const claim = (spec: AffectedWallHighlight, expressId: string) => {
+          if (claimed.has(expressId) || !ifcWallIdSet.has(expressId)) return false;
+          assignments.push({ spec, expressId });
+          claimed.add(expressId);
+          return true;
+        };
+
+        for (const spec of specs) {
+          if (!spec.guid) continue;
+          const expressId = wallGlobalIdToExpressId.get(spec.guid);
+          if (expressId) claim(spec, expressId);
+        }
+
+        let unmapped = specs.filter((s) => !assignments.some((a) => a.spec === s));
+        const changedAvailable = changedIfcWallGlobalIds.filter((gid) => {
+          const exp = wallGlobalIdToExpressId.get(gid);
+          return exp != null && !claimed.has(exp);
+        });
+
+        for (let i = 0; i < unmapped.length && i < changedAvailable.length; i++) {
+          const exp = wallGlobalIdToExpressId.get(changedAvailable[i]!)!;
+          claim(unmapped[i]!, exp);
+        }
+
+        unmapped = specs.filter((s) => !assignments.some((a) => a.spec === s));
+        if (unmapped.length > 0) {
+          const pool = wallPool.filter((id) => !claimed.has(id));
+          const picked = assignWallsByCardinalCycle(pool, wallBoundsCache, unmapped.length);
+          unmapped.forEach((spec, i) => {
+            const exp = picked[i];
+            if (exp) claim(spec, exp);
+          });
+        }
+
+        for (const { spec, expressId } of assignments) {
           affectedIdToColour.set(expressId, spec.colour);
           if (spec.guid) {
             guidToExpressId.set(spec.guid, expressId);
             expressToGuid.set(expressId, spec.guid);
+          } else {
+            for (const [gid, exp] of wallGlobalIdToExpressId) {
+              if (exp === expressId) {
+                expressToGuid.set(expressId, gid);
+                break;
+              }
+            }
           }
-        });
+        }
       };
+
+      const refreshWallDiff = async () => {
+        const compare = compareFileRef.current;
+        changedIfcWallGlobalIds.length = 0;
+        if (compare && currentWallIndex.size > 0) {
+          try {
+            const baseline = await indexIfcWalls(compare);
+            changedIfcWallGlobalIds.push(...changedWallGlobalIds(baseline, currentWallIndex));
+          } catch (err) {
+            console.error(err);
+          }
+        }
+        rebuildAffectedHighlights();
+        paintMeshes(selectedIdRef.current);
+      };
+      refreshWallDiffRef.current = refreshWallDiff;
 
       const paintMeshes = (selectionKey: string | null) => {
         const focusExpressId = resolveExpressId(selectionKey);
@@ -297,6 +363,9 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
         affectedIdToColour.clear();
         guidToExpressId.clear();
         expressToGuid.clear();
+        wallGlobalIdToExpressId.clear();
+        currentWallIndex.clear();
+        changedIfcWallGlobalIds.length = 0;
         inspectRef.current = (sid) => {
           if (!sid) onInspectRef.current?.(null);
         };
@@ -409,15 +478,29 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
           for (const id of ifcWallIds) {
             wallPool.push(id);
             ifcWallIdSet.add(id);
+            try {
+              const line = api.GetLine(modelID, Number(id), false);
+              const gid = val(line.GlobalId);
+              if (!gid) continue;
+              wallGlobalIdToExpressId.set(gid, id);
+              currentWallIndex.set(gid, {
+                globalId: gid,
+                expressId: id,
+                name: val(line.Name),
+                objectType: val(line.ObjectType),
+                tag: val(line.Tag),
+              });
+            } catch {
+              /* skip */
+            }
           }
           for (const m of newMeshes) {
             const id = String(m.userData["id"]);
             m.userData.isIfcWall = ifcWallIdSet.has(id);
           }
           const ifcWallCount = ifcWallIds.length;
-          rebuildAffectedHighlights();
+          await refreshWallDiff();
           const activeSelection = selectedIdRef.current;
-          paintMeshes(activeSelection);
           focusOnElement(activeSelection);
           const measured = measureBuildingAreaM2(api, modelID, WebIFC.IFCQUANTITYAREA);
           const buildingAreaM2 = measured ?? footprintAreaM2(box);
@@ -505,6 +588,10 @@ export const BimViewer = forwardRef<BimViewerHandle, Props>(function BimViewer(
     pendingRef.current = file;
     if (viewerReadyRef.current) void loadRef.current(file);
   }, [file]);
+  useEffect(() => {
+    if (!file || !viewerReadyRef.current) return;
+    void refreshWallDiffRef.current();
+  }, [compareFile, file]);
 
   return (
     <div className="relative h-full min-h-[480px] w-full">
