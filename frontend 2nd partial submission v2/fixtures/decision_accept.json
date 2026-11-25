@@ -1,0 +1,14 @@
+{
+  "run_id": "run_002",
+  "decision": "accept",
+  "selected_option": "ALT-01",
+  "reviewer": "Omar",
+  "reason": "ALT-01 restores the U-value target and still saves cost against v02.",
+  "at": "2026-11-21T10:12:00Z",
+  "result": {
+    "logged": true,
+    "log_id": 7,
+    "reference_version": "v02 + ALT-01 (designer to model it as v03)",
+    "write_back_to_bim": false
+  }
+}

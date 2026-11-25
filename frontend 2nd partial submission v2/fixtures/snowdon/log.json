@@ -1,0 +1,45 @@
+[
+ {
+  "log_id": 1,
+  "at": "2026-11-25T08:23:51Z",
+  "event": "run",
+  "run_id": "run_001",
+  "user": "Omar",
+  "version": "v01b",
+  "status": "done",
+  "verdict": "baseline",
+  "dV_pct": null,
+  "model_version": "classifier ve2_classifier_v06 + Revit Function (category)"
+ },
+ {
+  "log_id": 2,
+  "at": "2026-11-25T08:23:51Z",
+  "event": "decision",
+  "run_id": "run_001",
+  "user": "Omar",
+  "reason": "Baseline v01b agreed for the pilot",
+  "decision": "accept",
+  "option": null
+ },
+ {
+  "log_id": 3,
+  "at": "2026-11-25T08:23:51Z",
+  "event": "reference_version",
+  "run_id": "run_001",
+  "user": "Omar",
+  "version": "v01b",
+  "option": null
+ },
+ {
+  "log_id": 4,
+  "at": "2026-11-25T08:23:52Z",
+  "event": "run",
+  "run_id": "run_002",
+  "user": "Omar",
+  "version": "v02b",
+  "status": "done",
+  "verdict": "value_down",
+  "dV_pct": -2.9,
+  "model_version": "classifier ve2_classifier_v06 + Revit Function (category)"
+ }
+]

@@ -1,0 +1,59 @@
+[
+  {
+    "log_id": 1,
+    "at": "2026-11-14T09:30:00Z",
+    "event": "run",
+    "run_id": "run_001",
+    "version": "v01",
+    "status": "done",
+    "verdict": "baseline",
+    "user": "Asiya",
+    "model_version": "ve2 MOCK"
+  },
+  {
+    "log_id": 2,
+    "at": "2026-11-14T09:45:00Z",
+    "event": "decision",
+    "run_id": "run_001",
+    "decision": "accept",
+    "reason": "Baseline agreed with the client team.",
+    "user": "Omar"
+  },
+  {
+    "log_id": 3,
+    "at": "2026-11-14T09:46:00Z",
+    "event": "reference_version",
+    "run_id": "run_001",
+    "version": "v01"
+  },
+  {
+    "log_id": 4,
+    "at": "2026-11-21T10:05:00Z",
+    "event": "run",
+    "run_id": "run_002",
+    "version": "v02",
+    "status": "done",
+    "verdict": "value_down",
+    "dV_pct": -0.3,
+    "user": "Omar",
+    "model_version": "ve2 MOCK"
+  },
+  {
+    "log_id": 5,
+    "at": "2026-11-21T10:05:01Z",
+    "event": "flag",
+    "run_id": "run_002",
+    "guid": "1WFzaRxz5ODP5E0Ai2l$8L",
+    "message": "unmapped - needs human review"
+  },
+  {
+    "log_id": 6,
+    "at": "2026-11-21T10:20:00Z",
+    "event": "run",
+    "run_id": "run_003",
+    "version": "v03",
+    "status": "blocked",
+    "failure_test": "F1 Insufficient data",
+    "user": "Asiya"
+  }
+]
