@@ -78,10 +78,7 @@ export function ProjectRolesPanel({
             <div className="text-base font-bold tracking-widest text-primary">05 / ROLES</div>
             <h3 className="mt-1 text-xl font-semibold tracking-tight">People & permissions</h3>
             <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              Assign BIM Manager / Admin or Viewer access per person on this project. Sign in with{" "}
-              <span className="font-mono text-foreground">user@paive.eu</span> (admin) or{" "}
-              <span className="font-mono text-foreground">viewer@paive.eu</span> (viewer) — password{" "}
-              <span className="font-mono text-foreground">0000</span>.
+              Assign BIM Manager / Admin or Viewer access per person on this project.
             </p>
           </div>
           <Shield className="h-7 w-7 text-muted-foreground" />
