@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { clearDemoSession, isDemoAuthenticated } from "@/lib/demoAuth";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -40,7 +41,7 @@ import {
   type ProjectBaseline,
 } from "@/lib/projectStorage";
 import { ProjectConfigPanel } from "@/components/ProjectConfigPanel";
-import { ChevronDown, PanelLeftClose, PanelLeftOpen, Plus, Settings2, LayoutDashboard, Trash2 } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Plus, Settings2, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,11 @@ import { decide, loadRun, paiveRun } from "@/lib/paive/fakeBackend";
 import type { DecideResult, PaiveLogEntry, PaiveRun } from "@/lib/paive/types";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    if (!isDemoAuthenticated()) {
+      throw redirect({ to: "/login" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "PAiVE — Project AI Value Engineering Dashboard" },
@@ -862,6 +868,7 @@ function projectBaseline(p: Project): ProjectBaseline {
 }
 
 function Index() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(() => seedProjects());
   const [projectBaselines, setProjectBaselines] = useState<Record<string, ProjectBaseline>>(() =>
     projectBaselinesFromProjects(seedProjects()),
@@ -873,6 +880,11 @@ function Index() {
   const [decisionLogsByProject, setDecisionLogsByProject] = useState<Record<string, PaiveLogEntry[]>>({});
   const active = (projects.find((p) => p.id === activeId) ?? projects[0])!;
   const activeBaseline = projectBaselines[active.id] ?? projectBaseline(active);
+
+  const signOut = () => {
+    clearDemoSession();
+    void navigate({ to: "/login" });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1048,6 +1060,16 @@ function Index() {
               </div>
             </div>
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-lg font-semibold text-secondary-foreground">VV</div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={signOut}
+              aria-label="Sign out"
+              className="h-11 gap-2 border-border bg-card px-3 sm:px-4 text-base font-medium text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Sign out</span>
+            </Button>
           </div>
           </div>
         </div>
