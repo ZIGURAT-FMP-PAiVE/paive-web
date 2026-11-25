@@ -13,4 +13,43 @@ describe("affectedWallsForRun", () => {
     const walls = affectedWallsForRun(run002 as PaiveRun);
     expect(walls.length).toBe(5);
   });
+
+  it("omits unchanged walls when the run lists many elements", () => {
+    const big: PaiveRun = {
+      ...(run002 as PaiveRun),
+      walls: [
+        ...Array.from({ length: 60 }, (_, i) => ({
+          guid: `u-${i}`,
+          name: `U-${i}`,
+          change: "unchanged",
+          colour: "green",
+          type: null,
+          area_m2: 1,
+          u_value: null,
+          fire_min: null,
+          rw_db: null,
+          cost_eur: null,
+          flags: [],
+          ve2: { status: "mapped" as const, functions: [] },
+          achievement_pct: {},
+        })),
+        {
+          guid: "changed-1",
+          name: "EW",
+          change: "changed",
+          colour: "red",
+          type: null,
+          area_m2: 1,
+          u_value: null,
+          fire_min: null,
+          rw_db: null,
+          cost_eur: null,
+          flags: [],
+          ve2: { status: "mapped" as const, functions: [] },
+          achievement_pct: {},
+        },
+      ],
+    };
+    expect(affectedWallsForRun(big).map((w) => w.guid)).toEqual(["changed-1"]);
+  });
 });

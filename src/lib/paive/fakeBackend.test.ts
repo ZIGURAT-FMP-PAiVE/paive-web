@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decide, getLog, getRun, paiveRun } from "./fakeBackend";
+import { decide, getLog, getRun, loadRun, paiveRun } from "./fakeBackend";
 
 describe("paive fakeBackend", () => {
   it("routes runs by filename and active version", () => {
@@ -11,6 +11,8 @@ describe("paive fakeBackend", () => {
     expect(paiveRun("other.ifc")).toBe("run_002");
     expect(paiveRun("wall.ifc", "pilot-sample", "last-accepted", "", 1)).toBe("run_001");
     expect(paiveRun("wall.ifc", "pilot-sample", "last-accepted", "", 3)).toBe("run_002");
+    expect(paiveRun("Snowdon_Towers_v01b_clean.ifc", "x", "last-accepted", "", 1)).toBe("run_001_snowdon");
+    expect(paiveRun("Snowdon_Towers_v02b_clean.ifc", "x", "last-accepted", "", 2)).toBe("run_002_snowdon");
   });
 
   it("returns run_002 value down fixture", () => {

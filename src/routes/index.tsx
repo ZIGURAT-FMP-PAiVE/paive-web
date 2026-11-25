@@ -66,7 +66,7 @@ import {
   VeReportDraft,
 } from "@/components/paive/PaiveRunUI";
 import { affectedWallsForRun } from "@/lib/paive/affectedElements";
-import { decide, getRun, paiveRun } from "@/lib/paive/fakeBackend";
+import { decide, loadRun, paiveRun } from "@/lib/paive/fakeBackend";
 import type { DecideResult, PaiveLogEntry, PaiveRun } from "@/lib/paive/types";
 
 export const Route = createFileRoute("/")({
@@ -240,17 +240,23 @@ function Workflow({
       setVe5Accepted(false);
       return;
     }
+    let cancelled = false;
     const runId = paiveRun(ifcFile.name, project.id, "last-accepted", "", project.activeIfcVersion);
-    const run = getRun(runId);
-    setFixtureRun(run);
-    setDecideResult(null);
-    setDecisionReason("");
-    setVe5Accepted(false);
-    const firstWall = affectedWallsForRun(run)[0]?.guid ?? null;
-    setWallGuid(firstWall);
-    setSel(firstWall);
-    const firstOpt = run.d2?.options?.[0]?.assembly_id ?? null;
-    setSelectedAssembly(firstOpt);
+    void loadRun(runId).then((run) => {
+      if (cancelled) return;
+      setFixtureRun(run);
+      setDecideResult(null);
+      setDecisionReason("");
+      setVe5Accepted(false);
+      const firstWall = affectedWallsForRun(run)[0]?.guid ?? null;
+      setWallGuid(firstWall);
+      setSel(firstWall);
+      const firstOpt = run.d2?.options?.[0]?.assembly_id ?? null;
+      setSelectedAssembly(firstOpt);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [ifcFile?.name, project.activeIfcVersion]);
 
   const useFixtureUi = Boolean(fixtureRun && ifcFile);

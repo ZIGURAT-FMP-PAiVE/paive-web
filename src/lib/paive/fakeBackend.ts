@@ -1,6 +1,7 @@
 import { wallHealthRowClass } from "@/lib/veSemantics";
 import type { DecideResult, PaiveLogEntry, PaiveRun } from "./types";
 
+import { SNOWDON_RUN_FILES, usesSnowdonFixtures } from "./fixturePaths";
 import run001 from "./fixtures/run_001_baseline_v01.json";
 import run002 from "./fixtures/run_002_v02_value_down.json";
 import run003 from "./fixtures/run_003_blocked.json";
@@ -12,6 +13,8 @@ const RUNS: Record<string, PaiveRun> = {
   run_002: run002 as PaiveRun,
   run_003: run003 as PaiveRun,
 };
+
+const snowdonRunCache = new Map<string, PaiveRun>();
 
 let logEntries: PaiveLogEntry[] = [];
 
@@ -31,7 +34,15 @@ export function paiveRun(
   const name = ifcPath.toLowerCase();
   if (name.includes("no_psets") || name.includes("blocked")) return "run_003";
 
+  const snowdon = usesSnowdonFixtures(ifcPath);
   const version = activeIfcVersion ?? fixtureVersionFromFilename(ifcPath);
+
+  if (snowdon) {
+    if (version != null) return version <= 1 ? "run_001_snowdon" : "run_002_snowdon";
+    if (name.includes("v01b")) return "run_001_snowdon";
+    return "run_002_snowdon";
+  }
+
   if (version != null) return version <= 1 ? "run_001" : "run_002";
 
   if (name.includes("v01")) return "run_001";
@@ -40,8 +51,28 @@ export function paiveRun(
 
 export function getRun(runId: string): PaiveRun {
   const run = RUNS[runId];
-  if (!run) throw new Error(`Unknown run_id: ${runId}`);
-  return structuredClone(run);
+  if (run) return structuredClone(run);
+  throw new Error(`Unknown run_id: ${runId}`);
+}
+
+/** Loads typology fixtures inline; Snowdon pipeline JSON from `/public/fixtures/snowdon/`. */
+export async function loadRun(runId: string): Promise<PaiveRun> {
+  const run = RUNS[runId];
+  if (run) return structuredClone(run);
+
+  const snowdonPath = SNOWDON_RUN_FILES[runId];
+  if (snowdonPath) {
+    let cached = snowdonRunCache.get(runId);
+    if (!cached) {
+      const res = await fetch(snowdonPath);
+      if (!res.ok) throw new Error(`Failed to load fixture: ${snowdonPath}`);
+      cached = (await res.json()) as PaiveRun;
+      snowdonRunCache.set(runId, cached);
+    }
+    return structuredClone(cached);
+  }
+
+  throw new Error(`Unknown run_id: ${runId}`);
 }
 
 export function decide(

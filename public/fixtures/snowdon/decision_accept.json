@@ -1,0 +1,14 @@
+{
+ "run_id": "run_001",
+ "decision": "accept",
+ "selected_option": null,
+ "reviewer": "Omar",
+ "reason": "Baseline v01b agreed for the pilot",
+ "at": "2026-11-25T08:23:51Z",
+ "result": {
+  "logged": true,
+  "log_id": 2,
+  "write_back_to_bim": false,
+  "reference_version": "v01b"
+ }
+}
